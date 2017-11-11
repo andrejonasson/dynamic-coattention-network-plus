@@ -1,0 +1,12 @@
+.vscode
+checkpoints
+log
+train
+download
+other
+data
+*.pyc
+*.bak
+cs224n
+cat.py
+question_answering/modules.py
