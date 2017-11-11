@@ -22,7 +22,7 @@ class QASystem:
         :param decoder: a decoder that you constructed in train.py
         :param args: pass in more arguments as needed
         """
-        self.hparams = copy.copy(hparams)  # TODO
+        self.hparams = copy.copy(hparams)
         self.encode = encoder
         self.decode = decoder
         self.pretrained_embeddings = pretrained_embeddings
@@ -56,12 +56,22 @@ class QASystem:
             tf.summary.scalar('cross_entropy', self.loss)
 
         with tf.name_scope('train'):
-            optimizer = tf.train.AdamOptimizer(self.hparams['learning_rate'])
+            global_step = tf.train.get_or_create_global_step()
+            if self.hparams['exponential_decay']:
+                lr = tf.train.exponential_decay(learning_rate=self.hparams['learning_rate'], 
+                                                global_step=global_step, 
+                                                decay_steps=self.hparams['decay_steps'], 
+                                                decay_rate=self.hparams['decay_rate'], 
+                                                staircase=self.hparams['staircase'])
+                tf.summary.scalar('learning_rate', lr)
+            else:
+                lr = self.hparams['learning_rate']
+            optimizer = tf.train.AdamOptimizer(lr)
             grad, tvars = zip(*optimizer.compute_gradients(self.loss))
             if self.hparams['clip_gradients']:
                 grad, _ = tf.clip_by_global_norm(grad, self.hparams['max_gradient_norm'], name='gradient_clipper')  
             grad_norm = tf.global_norm(grad)
-            self.train = optimizer.apply_gradients(zip(grad, tvars), global_step=tf.train.get_or_create_global_step(), name='apply_grads')
+            self.train = optimizer.apply_gradients(zip(grad, tvars), global_step=global_step, name='apply_grads')
             tf.summary.scalar('grad_norm', grad_norm)
 
     def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None, keep_prob=1.0):
