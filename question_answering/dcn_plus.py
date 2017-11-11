@@ -1,4 +1,14 @@
-""" DCN+ Query Document Encoder/Decoder [1]
+""" Dynamic Coattention Network Plus, DCN+ [1] 
+
+Dynamic Coattention Network (DCN+) consists of an encoder for a (query, document) pair.
+The encoder encodes the pair into a single representation in document space. This encoder
+implementation can easily be adapted to other use cases than Question Answering.
+
+The decoder implementation takes the encoding and returns answer span logits. Its
+use case is specific to the SQuAD dataset.
+
+[1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
+    Xiong et al, https://arxiv.org/abs/1711.00106
 
 NOTE: query always comes before document in function arguments and returns
 
@@ -8,9 +18,7 @@ Shape notation:
     Q = Query max length
     H = State size
     R = Word embedding size
-
-[1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
-        Xiong et al, https://arxiv.org/abs/1711.00106
+    ? = Wildcard size
 """
 
 import tensorflow as tf
@@ -18,7 +26,7 @@ import tensorflow as tf
 def encode(state_size, query, query_length, document, document_length):
     """ DCN+ encoder.
     
-    Encodes queries and documents into document-query representations in document space.
+    Encodes query document pairs into a document-query representations in document space.
 
     Args:
         state_size: A scalar integer. State size of RNN cell encoders.
