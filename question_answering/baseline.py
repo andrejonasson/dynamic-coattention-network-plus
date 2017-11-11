@@ -96,8 +96,8 @@ def decode(encoding):
     
     Returns:
         A tuple containing
-            Logit for answer span start position, shape [N]
-            Logit for answer span end position, shape [N]
+            Logit for answer span start position, shape [N, D]
+            Logit for answer span end position, shape [N, D]
     """
     
     with tf.variable_scope('decode_start'):

@@ -2,6 +2,13 @@
 
 NOTE: query always comes before document in function arguments and returns
 
+Shape notation:
+    N = Batch size
+    D = Document max length
+    Q = Query max length
+    H = State size
+    R = Word embedding size
+
 [1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
         Xiong et al, https://arxiv.org/abs/1711.00106
 """
@@ -9,13 +16,9 @@ NOTE: query always comes before document in function arguments and returns
 import tensorflow as tf
 
 def encode(state_size, query, query_length, document, document_length):
-    """ DCN+ encoder that encodes queries and documents into one representation.
-
-    N = Batch size
-    D = Document max length
-    Q = Query max length
-    H = State size
-    R = Word embedding size
+    """ DCN+ encoder.
+    
+    Encodes queries and documents into document-query representations in document space.
 
     Args:
         state_size: A scalar integer. State size of RNN cell encoders.
@@ -63,7 +66,7 @@ def encode(state_size, query, query_length, document, document_length):
             sequence_length = document_length,
         )
         encoding = tf.concat(outputs, 2)
-    return encoding  # N x D x 2H
+    return encoding
 
 
 def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length):
@@ -118,7 +121,7 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
         affinity_mask_value: (optional) Value to mask affinity with.
     
     Returns:
-        Masked affinity
+        Masked affinity, same shape as affinity
     """
     if sequence_length is None:
         return affinity
@@ -174,14 +177,15 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     """
     # TODO make sure masking is enough
         
-    unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # N x D x Q
+    unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q]
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
-    attention_p = tf.nn.softmax(affinity, dim=1)  # N x D x Q
-    affinity_t = maybe_mask_affinity(tf.transpose(unmasked_affinity, [0, 2, 1]), query_length)
-    attention_q = tf.nn.softmax(affinity_t, dim=1)  # N x Q x D
-    summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # N x 2H x Q
-    summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # N x 2H x D
-    coattention_d = tf.einsum('nqh,nqd->ndh', summary_q, attention_q) # N x D x 2H
+    attention_p = tf.nn.softmax(affinity, dim=1)
+    unmasked_affinity_t = tf.transpose(unmasked_affinity, [0, 2, 1])  # [N, Q, D]
+    affinity_t = maybe_mask_affinity(unmasked_affinity_t, query_length)
+    attention_q = tf.nn.softmax(affinity_t, dim=1)
+    summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, 2H, Q]
+    summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, 2H, D]
+    coattention_d = tf.einsum('nqh,nqd->ndh', summary_q, attention_q)
     return summary_q, summary_d, coattention_d
 
 
@@ -193,8 +197,8 @@ def decode(encoding):
     
     Returns:
         A tuple containing
-            Logit for answer span start position, shape [N]
-            Logit for answer span end position, shape [N]
+            Logit for answer span start position, shape [N, D]
+            Logit for answer span end position, shape [N, D]
     """
     
     with tf.variable_scope('decode_start'):
