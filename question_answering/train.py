@@ -18,6 +18,7 @@ from dataset import SquadDataset
 logging.basicConfig(level=logging.INFO)
 
 # Training hyperparameters
+tf.app.flags.DEFINE_integer("max_steps", 10000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
 tf.app.flags.DEFINE_float("learning_rate", 0.01, "Learning rate.")  # 0.005
 
@@ -32,15 +33,17 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm
 # Model hyperparameters
 tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped on non-recurrent connections.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("output_size", 300, "The output size of your model.")
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
-# tf.app.flags.DEFINE_integer("max_paragraph_length", 300, "Maximum paragraph length")  # output_size used instead
+tf.app.flags.DEFINE_integer("max_paragraph_length", 300, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
+
+# Evaluation arguments
+tf.app.flags.DEFINE_integer("eval_size", 400, "Number of samples to use for evaluation.")
 
 # Directories etc.
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
@@ -68,19 +71,15 @@ def do_train(model, train, dev, eval_metric):
     #     graph = model.graph
     # else:
     #     graph = tf.get_default_graph()
-    
-    # how big a sample to evaluate on
-    eval_size = 100
-    steps = 5000
 
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
-
+    
     # Two writers needed to enable plotting two lines in one plot
     dev_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'dev'))
     train_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'train'))
     
     hooks = [
-        tf.train.StopAtStepHook(last_step=steps),
+        tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
         tf.train.NanTensorHook(model.loss),
     ]
 
@@ -116,12 +115,12 @@ def do_train(model, train, dev, eval_metric):
             # Train/Dev Evaluation
             if eval_metric is not None and step != 0 and (step == 50 or step == 200 or step % 500 == 0):
                 start_evaluate = timer()
-                train_f1 = eval_metric(session, model, train, size=eval_size)
+                train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
                 train_summary_writer.add_summary(
                     tf.Summary(value=[tf.Summary.Value(tag='F1', simple_value=train_f1)]),
                     step
                 )
-                dev_f1 = eval_metric(session, model, dev, size=eval_size)
+                dev_f1 = eval_metric(session, model, dev, size=FLAGS.eval_size)
                 dev_summary_writer.add_summary(
                     tf.Summary(value=[tf.Summary.Value(tag='F1', simple_value=dev_f1)]),
                     step
@@ -130,7 +129,7 @@ def do_train(model, train, dev, eval_metric):
                 logging.info(f'Step {step}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
             
             # Final evaluation on full development set
-            if step == steps:
+            if step == FLAGS.max_steps-1:
                 # TODO need to change Dev to full ~(700 paragraph length, 100 question length)
                 start_evaluate = timer()
                 dev_f1 = evaluate(session, model, dev, size=dev.length)
@@ -141,10 +140,10 @@ def main(_):
     # Load data
     train = SquadDataset(*get_data_paths(FLAGS.data_dir, name='train'), 
                          max_question_length=FLAGS.max_question_length, 
-                         max_paragraph_length=FLAGS.output_size)
+                         max_paragraph_length=FLAGS.max_paragraph_length)
     dev = SquadDataset(*get_data_paths(FLAGS.data_dir, name='val'), 
                          max_question_length=FLAGS.max_question_length, 
-                         max_paragraph_length=FLAGS.output_size) # probably not cut
+                         max_paragraph_length=FLAGS.max_paragraph_length) # probably not cut
     # TODO convert to TF Dataset API
     # train = tf.convert_to_tensor(train)
     # dev = tf.convert_to_tensor(dev)
@@ -211,7 +210,7 @@ def test_overfit():
             for step in range(steps_per_epoch):
                 loss, _ = model.training_step(sess, *train[:test_size])
                 if (step == 0 and epoch == 0):
-                    print(f'Entropy - Result: {loss:.2f}, Expected (approx.): {2*np.log(FLAGS.output_size):.2f}')
+                    print(f'Entropy - Result: {loss:.2f}, Expected (approx.): {2*np.log(FLAGS.max_paragraph_length):.2f}')
                 if step == steps_per_epoch-1:
                     print(f'Cross entropy: {loss}')
                     train.length = 32

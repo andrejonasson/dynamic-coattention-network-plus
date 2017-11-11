@@ -14,9 +14,10 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
 
 def encode(state_size, question, question_length, paragraph, paragraph_length):
     """ Baseline Encoder that encodes questions and paragraphs into one representation.
+
     It first encodes the question and paragraphs using a shared BiLSTM, then uses a 
-    one layer coattention similar to Dynamic Coattention Network's [1]. Finally, it
-    uses the initial encoding and the coattention to build a final encoding using
+    one layer coattention similar to Dynamic Coattention Network's [1]. Finally, concatenates 
+    the initial encoding and the coattention to build a final encoding using
     a separate BiLSTM.
 
     [1] Dynamic Coattention Networks For Question Answering, Xiong et al, 
@@ -87,18 +88,25 @@ def encode(state_size, question, question_length, paragraph, paragraph_length):
         encoding = tf.concat(outputs, 2)
     return encoding  # N x P x 2H
 
-def decode(knowledge_rep):
-    """Takes in combined representation of paragraph and question
-    # TODO add proper parameter comments
+def decode(encoding):
+    """ Decodes encoding to logits used to find answer span
+
+    Args:
+        encoding: Document representation, shape [N, D, ?].
+    
+    Returns:
+        A tuple containing
+            Logit for answer span start position, shape [N]
+            Logit for answer span end position, shape [N]
     """
     
     with tf.variable_scope('decode_start'):
-        start_logit = tf.layers.dense(knowledge_rep, 1)
+        start_logit = tf.layers.dense(encoding, 1)
         start_logit = tf.squeeze(start_logit)
     
     # TODO condition decode_end on decode_start
     with tf.variable_scope('decode_end'):
-        end_logit = tf.layers.dense(knowledge_rep, 1)
+        end_logit = tf.layers.dense(encoding, 1)
         end_logit = tf.squeeze(end_logit)
 
     return start_logit, end_logit

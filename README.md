@@ -1,15 +1,43 @@
 Question Answering / Reading Comprehension
 ==========================================
 
-Very much a work in progress.
+Work in progress.
 
-The project will include some reimplementations of papers on coattention mechanisms. It currently has a working baseline model that achieves ~0.42 F1 (20171109, limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters (see baseline.py).
+The project will include some reimplementations of papers on coattention mechanisms. 
+
+Networks implemented: A simple baseline model (BiLSTM + Coattention + Naive decoder) and a partial Dynamic Coattention Network Plus (DCN+) (work in progress).
 
 ## Introduction
 
 SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning problem where the model receives a question and a passage and is tasked with answering the question using the passage. The answers are limited to spans of text. The training data consists of (question, paragraph, answer span) triplets. Due to the nature of the task, combining the information contained in the passage with the question posed is paramount to achieve good performance. (See references for more information)
 
 Recurrent neural networks that combine the information from the question and paragraph using coattention mechanisms such as [1] and [2] have achieved the best results in the competition so far. This project aims to reimplement some of these architectures in TensorFlow and achieve competitive results on the SQuAD dataset.
+
+## Networks
+
+### Baseline model
+Baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
+
+Best hyperparameters
+```
+Steps = 15000
+Word embedding size = 100
+Hidden state size = 100
+Optimizer = Adam
+Learning Rate = 0.01
+Decay = Exponential (Staircase)
+Decay Steps = 4500
+Decay Rate = 0.5
+
+F1 = ~0.46 (300 max length paragraph, 25 max length questions)
+```
+
+### Dynamic Coattention Network Plus (DCN+)
+The project now includes an implementation of the DCN+ encoder [2] without sentinel vector. 
+
+The decoder is a work in progress. 
+
+Instead of mixed ojective the implementation will have cross entropy.
 
 ## Dependencies
 
