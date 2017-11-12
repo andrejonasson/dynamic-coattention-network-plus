@@ -29,11 +29,12 @@ Decay = Exponential (Staircase)
 Decay Steps = 4500
 Decay Rate = 0.5
 
-F1 = ~0.46 (300 max length paragraph, 25 max length questions)
+Dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
 ```
+Increasing embedding size and state size should improve performance further.
 
 ### Dynamic Coattention Network Plus (DCN+)
-The project a nearly complete implementation of the DCN+ encoder (work in progress). 
+The project contains a nearly complete implementation of the DCN+ encoder (work in progress). 
 
 Instead of mixed ojective the implementation will have cross entropy.
 

@@ -5,18 +5,18 @@ The encoder encodes the pair into a single representation in document space. Thi
 implementation can easily be adapted to other use cases than Question Answering.
 
 The decoder implementation takes the encoding and returns answer span logits. Its
-use case is specific to the SQuAD dataset.
+application is specific to the SQuAD dataset.
 
 [1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
     Xiong et al, https://arxiv.org/abs/1711.00106
 
-Shape notation:
-    N = Batch size
-    D = Document max length
-    Q = Query max length
-    H = State size
-    R = Word embedding size
-    ? = Wildcard size
+Shape notation:  
+    N = Batch size  
+    D = Document max length  
+    Q = Query max length  
+    H = State size  
+    R = Word embedding size  
+    ? = Wildcard size  
 """
 
 import tensorflow as tf
@@ -26,14 +26,14 @@ def encode(state_size, query, query_length, document, document_length):
     
     Encodes query document pairs into a document-query representations in document space.
 
-    Args:
-        state_size: A scalar integer. State size of RNN cell encoders.
-        query: A tensor of rank 3, shape [N, Q, R].
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.
-        document: A tensor of rank 3, shape [N, D, R]. 
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.
+    Args:  
+        state_size: A scalar integer. State size of RNN cell encoders.  
+        query: A tensor of rank 3, shape [N, Q, R].  
+        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
+        document: A tensor of rank 3, shape [N, D, R].  
+        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
     
-    Returns:
+    Returns:  
         Merged representation of query and document in document space, shape [N, D, 2H].
     """
 
@@ -81,16 +81,16 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
     Forward and backward cells are shared between the bidirectional query and document encoders. 
     The document encoding passes through an additional dense layer with tanh activation.
 
-    Args:
-        cell_fw: RNNCell for forward direction encoding.
-        cell_bw: RNNCell for backward direction encoding.
-        query: A tensor of rank 3, shape [N, Q, 2H].
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.
-        document: A tensor of rank 3, shape [N, D, 2H].
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.
-    Returns:
-        A tuple containing
-            encoding of query, shape [N, Q, 2H]
+    Args:  
+        cell_fw: RNNCell for forward direction encoding.  
+        cell_bw: RNNCell for backward direction encoding.  
+        query: A tensor of rank 3, shape [N, Q, 2H].  
+        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
+        document: A tensor of rank 3, shape [N, D, 2H].  
+        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
+    Returns:  
+        A tuple containing  
+            encoding of query, shape [N, Q, 2H]  
             encoding of document, shape [N, D, 2H]
     """
     query_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
@@ -101,7 +101,12 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         sequence_length = query_length
     )
     query_encoding = tf.concat(query_fw_bw_encodings, 2)
-    query_encoding = tf.layers.dense(query_encoding, query_encoding.get_shape()[2], activation=tf.tanh)
+    query_encoding = tf.layers.dense(
+        query_encoding, 
+        query_encoding.get_shape()[2], 
+        activation=tf.tanh,
+        kernel_initializer=None
+    )
 
     document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
         cell_fw = cell_fw,
@@ -119,15 +124,15 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     """ Masks affinity along its third dimension with `affinity_mask_value`.
 
     Used for masking entries of sequences longer than `sequence_length` prior to 
-    applying softmax.
+    applying softmax.  
 
-    Args:
-        affinity: A tensor of rank 3, of shape [N, D or Q, Q or D] where attention logits are in the second dimension.
-        sequence_length: A tensor of rank 1, of shape [N]. Lengths of second dimension of the affinity.
-        affinity_mask_value: (optional) Value to mask affinity with.
+    Args:  
+        affinity: A tensor of rank 3, of shape [N, D or Q, Q or D] where attention logits are in the second dimension.  
+        sequence_length: A tensor of rank 1, of shape [N]. Lengths of second dimension of the affinity.  
+        affinity_mask_value: (optional) Value to mask affinity with.  
     
-    Returns:
-        Masked affinity, same shape as affinity
+    Returns:  
+        Masked affinity, same shape as affinity.
     """
     if sequence_length is None:
         return affinity
@@ -140,20 +145,18 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
 def coattention(query, query_length, document, document_length, sentinel=False):
     """ DCN+ Coattention layer.
     
-    Args:
-        query: A tensor of rank 3, shape [N, Q, 2H].
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.
-        document: A tensor of rank 3, shape [N, D, 2H].
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.
-        sentinel: Scalar boolean. If True, concatenate a sentinel vector to query and document.
+    Args:  
+        query: A tensor of rank 3, shape [N, Q, 2H].  
+        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
+        document: A tensor of rank 3, shape [N, D, 2H].  
+        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
+        sentinel: Scalar boolean. If True, concatenates a sentinel vector to query and document.  
 
-    Returns:
-        A tuple containing:
-            summary matrix of the query, shape [N, Q, 2H]
-            summary matrix of the document, shape [N, D, 2H]
+    Returns:  
+        A tuple containing:  
+            summary matrix of the query, shape [N, Q, 2H]  
+            summary matrix of the document, shape [N, D, 2H]  
             coattention matrix of the document and query in document space, shape [N, D, 2H]
-    
-    * TODO add sentinel
     """
 
     """
@@ -166,19 +169,20 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         S^D = summary_d
         C^D = coattention_d
     
-    The indices in Einstein summation notation correspond to
+    The dimenions' indices in Einstein summation notation are
         n = batch dimension
         d = document dimension
         q = query dimension
         h = hidden state dimension
     """
-    # TODO make sure masking is enough
     if sentinel:
-        pass
-        # document_length += 1
-        # query_length += 1
-        # document = tf.concat([sentinel, document], 1)  # concatenate sentinel vector at beginning
-        # query = tf.concat([sentinel, query], 1)  # concatenate sentinel vector at beginning
+        n, _, h = tf.shape(document)
+        sentinel = tf.constant(0, dtype=tf.float32, [n, 1, h])
+        document = tf.concat([sentinel, document], 1)
+        query = tf.concat([sentinel, query], 1)
+        document_length += 1
+        query_length += 1
+    # TODO make sure masking is enough
     unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q]
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
     attention_p = tf.nn.softmax(affinity, dim=1)
@@ -186,8 +190,8 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     affinity_t = maybe_mask_affinity(unmasked_affinity_t, query_length)
     attention_q = tf.nn.softmax(affinity_t, dim=1)
     if sentinel:
-        pass
-        # drop first vector in query and document
+        document = document[:,1:,:]
+        query = query[:,1:,:]
     summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, 2H, Q]
     summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, 2H, D]
     coattention_d = tf.einsum('nqh,nqd->ndh', summary_q, attention_q)
@@ -197,12 +201,12 @@ def coattention(query, query_length, document, document_length, sentinel=False):
 def decode(encoding):
     """ Decodes encoding to answer span logits.
 
-    Args:
-        encoding: Document representation, shape [N, D, ?].
+    Args:  
+        encoding: Document representation, shape [N, D, ?].  
     
-    Returns:
+    Returns:  
         A tuple containing
-            Logit for answer span start position, shape [N, D]
+            Logit for answer span start position, shape [N, D]  
             Logit for answer span end position, shape [N, D]
     """
     

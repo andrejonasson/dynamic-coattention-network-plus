@@ -21,9 +21,9 @@ logging.basicConfig(level=logging.INFO)
 # Training hyperparameters
 tf.app.flags.DEFINE_integer("max_steps", 15000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
-tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 
-tf.app.flags.DEFINE_boolean("exponential_decay", True, "Whether to use exponential decay.")
+tf.app.flags.DEFINE_boolean("exponential_decay", False, "Whether to use exponential decay.")
 tf.app.flags.DEFINE_float("decay_steps", 4000, "Number of steps for learning rate to decay by decay_rate")
 tf.app.flags.DEFINE_boolean("staircase", True, "Whether staircase decay (use of integer division in decay).")
 tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
