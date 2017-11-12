@@ -1,5 +1,4 @@
 import time
-import logging
 import copy
 import numpy as np
 import tensorflow as tf
@@ -7,8 +6,6 @@ from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_
 from tensorflow import variable_scope
 
 from evaluate import exact_match_score, f1_score
-
-logging.basicConfig(level=logging.INFO)
 
 
 # TODO output from decoder + loss definition (_maybe_mask_score?)
@@ -53,17 +50,15 @@ class QASystem:
             end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.end_logit, labels=self.answer_span[:, 1], name='end_loss')
             loss_per_example = start_loss + end_loss
             self.loss = tf.reduce_mean(loss_per_example)
-            tf.summary.scalar('cross_entropy', self.loss)
 
-        with tf.name_scope('train'):
-            global_step = tf.train.get_or_create_global_step()
+        global_step = tf.train.get_or_create_global_step()
+        with tf.variable_scope('train'):
             if self.hparams['exponential_decay']:
                 lr = tf.train.exponential_decay(learning_rate=self.hparams['learning_rate'], 
                                                 global_step=global_step, 
                                                 decay_steps=self.hparams['decay_steps'], 
                                                 decay_rate=self.hparams['decay_rate'], 
-                                                staircase=self.hparams['staircase'])
-                tf.summary.scalar('learning_rate', lr)
+                                                staircase=self.hparams['staircase']) 
             else:
                 lr = self.hparams['learning_rate']
             optimizer = tf.train.AdamOptimizer(lr)
@@ -72,7 +67,10 @@ class QASystem:
                 grad, _ = tf.clip_by_global_norm(grad, self.hparams['max_gradient_norm'], name='gradient_clipper')  
             grad_norm = tf.global_norm(grad)
             self.train = optimizer.apply_gradients(zip(grad, tvars), global_step=global_step, name='apply_grads')
-            tf.summary.scalar('grad_norm', grad_norm)
+        
+        tf.summary.scalar('cross_entropy', self.loss)
+        tf.summary.scalar('learning_rate', lr)
+        tf.summary.scalar('grad_norm', grad_norm)
 
     def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None, keep_prob=1.0):
         feed_dict = {

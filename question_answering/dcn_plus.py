@@ -10,8 +10,6 @@ use case is specific to the SQuAD dataset.
 [1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
     Xiong et al, https://arxiv.org/abs/1711.00106
 
-NOTE: query always comes before document in function arguments and returns
-
 Shape notation:
     N = Batch size
     D = Document max length
@@ -103,7 +101,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         sequence_length = query_length
     )
     query_encoding = tf.concat(query_fw_bw_encodings, 2)
-    query_encoding = tf.layers.dense(query_encoding, tf.shape(query_encoding)[2], activation=tf.tanh)
+    query_encoding = tf.layers.dense(query_encoding, query_encoding.get_shape()[2], activation=tf.tanh)
 
     document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
         cell_fw = cell_fw,
@@ -137,15 +135,6 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     score_mask = tf.tile(tf.expand_dims(score_mask, 2), (1, 1, tf.shape(affinity)[2]))
     affinity_mask_values = affinity_mask_value * tf.ones_like(affinity)
     return tf.where(score_mask, affinity, affinity_mask_values)
-
-
-def add_sentinel(encoding):
-    # TODO will need to add +1 to first coattention layer calculation
-    pass
-
-
-def remove_sentinel(encoding):
-    pass
 
 
 def coattention(query, query_length, document, document_length, sentinel=False):
@@ -184,13 +173,21 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         h = hidden state dimension
     """
     # TODO make sure masking is enough
-        
+    if sentinel:
+        pass
+        # document_length += 1
+        # query_length += 1
+        # document = tf.concat([sentinel, document], 1)  # concatenate sentinel vector at beginning
+        # query = tf.concat([sentinel, query], 1)  # concatenate sentinel vector at beginning
     unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q]
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
     attention_p = tf.nn.softmax(affinity, dim=1)
     unmasked_affinity_t = tf.transpose(unmasked_affinity, [0, 2, 1])  # [N, Q, D]
     affinity_t = maybe_mask_affinity(unmasked_affinity_t, query_length)
     attention_q = tf.nn.softmax(affinity_t, dim=1)
+    if sentinel:
+        pass
+        # drop first vector in query and document
     summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, 2H, Q]
     summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, 2H, D]
     coattention_d = tf.einsum('nqh,nqd->ndh', summary_q, attention_q)
@@ -198,7 +195,7 @@ def coattention(query, query_length, document, document_length, sentinel=False):
 
 
 def decode(encoding):
-    """ Decodes encoding to logits used to find answer span
+    """ Decodes encoding to answer span logits.
 
     Args:
         encoding: Document representation, shape [N, D, ?].

@@ -33,9 +33,7 @@ F1 = ~0.46 (300 max length paragraph, 25 max length questions)
 ```
 
 ### Dynamic Coattention Network Plus (DCN+)
-The project now includes an implementation of the DCN+ encoder [2] without sentinel vector. 
-
-The decoder is a work in progress. 
+The project a nearly complete implementation of the DCN+ encoder (work in progress). 
 
 Instead of mixed ojective the implementation will have cross entropy.
 

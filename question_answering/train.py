@@ -12,20 +12,21 @@ import numpy as np
 from utils import initialize_vocab, get_normalized_train_dir, evaluate, get_data_paths
 from cat import Graph 
 from model import QASystem
-from baseline import encode, decode
+# from baseline import encode, decode
+from dcn_plus import encode, decode
 from dataset import SquadDataset
 
 logging.basicConfig(level=logging.INFO)
 
 # Training hyperparameters
-tf.app.flags.DEFINE_integer("max_steps", 10000, "Steps until training loop stops.")
+tf.app.flags.DEFINE_integer("max_steps", 15000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
-tf.app.flags.DEFINE_float("learning_rate", 0.01, "Learning rate.")  # 0.005
+tf.app.flags.DEFINE_float("learning_rate", 0.5, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("exponential_decay", True, "Whether to use exponential decay.")
-tf.app.flags.DEFINE_float("decay_steps", 4500, "Number of steps for learning rate to decay by decay_rate")
+tf.app.flags.DEFINE_float("decay_steps", 4000, "Number of steps for learning rate to decay by decay_rate")
 tf.app.flags.DEFINE_boolean("staircase", True, "Whether staircase decay (use of integer division in decay).")
-tf.app.flags.DEFINE_float("decay_rate", 0.5, "Learning rate.")
+tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
@@ -33,6 +34,7 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm
 # Model hyperparameters
 tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped on non-recurrent connections.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 
@@ -57,6 +59,7 @@ tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embeddin
 
 FLAGS = tf.app.flags.FLAGS
 
+# TODO hyperparameter random search
 # TODO add flag for what model should be used
 # TODO implement early stopping, or reload
 # TODO implement EM
@@ -73,7 +76,7 @@ def do_train(model, train, dev, eval_metric):
     #     graph = tf.get_default_graph()
 
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
-    
+
     # Two writers needed to enable plotting two lines in one plot
     dev_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'dev'))
     train_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'train'))
@@ -113,7 +116,7 @@ def do_train(model, train, dev, eval_metric):
                 print(f'Step {step}, loss {mean_loss:.2f}')
             
             # Train/Dev Evaluation
-            if eval_metric is not None and step != 0 and (step == 50 or step == 200 or step % 500 == 0):
+            if eval_metric is not None and step != 0 and (step == 200 or step % 500 == 0):
                 start_evaluate = timer()
                 train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
                 train_summary_writer.add_summary(
@@ -129,7 +132,7 @@ def do_train(model, train, dev, eval_metric):
                 logging.info(f'Step {step}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
             
             # Final evaluation on full development set
-            if step == FLAGS.max_steps-1:
+            if step != 0 and (step % 7000 == 0 or step == FLAGS.max_steps-1):
                 # TODO need to change Dev to full ~(700 paragraph length, 100 question length)
                 start_evaluate = timer()
                 dev_f1 = evaluate(session, model, dev, size=dev.length)
