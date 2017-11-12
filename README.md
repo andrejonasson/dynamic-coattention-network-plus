@@ -34,7 +34,9 @@ Dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
 Increasing embedding size and state size should improve performance further.
 
 ### Dynamic Coattention Network Plus (DCN+)
-The project contains a nearly complete implementation of the DCN+ encoder (work in progress). 
+The project contains a complete implementation of the DCN+ encoder. Decoder is in progress. 
+
+Encoder without sentinel with naive decoder achieves ~0.60 Dev F1 with similar states and sizes as Baseline model above.
 
 Instead of mixed ojective the implementation will have cross entropy.
 

@@ -12,8 +12,8 @@ application is specific to the SQuAD dataset.
 
 Shape notation:  
     N = Batch size  
-    D = Document max length  
     Q = Query max length  
+    D = Document max length  
     H = State size  
     R = Word embedding size  
     ? = Wildcard size  
@@ -43,15 +43,11 @@ def encode(state_size, query, query_length, document, document_length):
 
     with tf.variable_scope('encoder'):
         query_encoding, document_encoding = query_document_encoder(get_cell(), get_cell(), query, query_length, document, document_length)
-
-    with tf.variable_scope('coattention_1'):
         summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     with tf.variable_scope('summary_encoder'):
         summary_q_encoding, summary_d_encoding = query_document_encoder(get_cell(), get_cell(), summary_q_1, query_length, summary_d_1, document_length)
-
-    with tf.variable_scope('coattention_2'): 
-        _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)
+        _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)        
 
     document_representations = [
         document_encoding,  # E^D_1
@@ -84,13 +80,13 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
     Args:  
         cell_fw: RNNCell for forward direction encoding.  
         cell_bw: RNNCell for backward direction encoding.  
-        query: A tensor of rank 3, shape [N, Q, 2H].  
+        query: A tensor of rank 3, shape [N, Q, ?].  
         query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
-        document: A tensor of rank 3, shape [N, D, 2H].  
+        document: A tensor of rank 3, shape [N, D, ?].  
         document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
     Returns:  
         A tuple containing  
-            encoding of query, shape [N, Q, 2H]  
+            encoding of query, shape [N, Q, 2H]
             encoding of document, shape [N, D, 2H]
     """
     query_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
@@ -100,7 +96,8 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         inputs = query,
         sequence_length = query_length
     )
-    query_encoding = tf.concat(query_fw_bw_encodings, 2)
+    query_encoding = tf.concat(query_fw_bw_encodings, 2)        
+    
     query_encoding = tf.layers.dense(
         query_encoding, 
         query_encoding.get_shape()[2], 
@@ -115,10 +112,27 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         inputs = document,
         sequence_length = document_length
     )
+        
     document_encoding = tf.concat(document_fw_bw_encodings, 2)
 
     return query_encoding, document_encoding
 
+def concat_sentinel(sentinel_name, other_tensor):
+    """ Left concatenates a sentinel vector along `other_tensor`'s second dimension
+
+    Args:  
+        sentinel_name: Variable name of sentinel.  
+        other_tensor: A rank 3 Tensor to left concatenate sentinel to.  
+
+    Returns:  
+        other_tensor with sentinel.
+    """
+    sentinel = tf.get_variable(sentinel_name, other_tensor.get_shape()[2], tf.float32)
+    sentinel = tf.expand_dims(sentinel, axis=0)
+    sentinel = tf.expand_dims(sentinel, axis=0)
+    sentinel = tf.tile(sentinel, (tf.shape(other_tensor)[0], 1, 1))
+    other_tensor = tf.concat([sentinel, other_tensor], 1)
+    return other_tensor
 
 def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
     """ Masks affinity along its third dimension with `affinity_mask_value`.
@@ -147,10 +161,11 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     
     Args:  
         query: A tensor of rank 3, shape [N, Q, 2H].  
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
-        document: A tensor of rank 3, shape [N, D, 2H].  
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
-        sentinel: Scalar boolean. If True, concatenates a sentinel vector to query and document.  
+        query_length: A tensor of rank 1, shape [N]. Lengths of queries without sentinel.  
+        document: A tensor of rank 3, shape [N, D, 2H].   
+        document_length: A tensor of rank 1, shape [N]. Lengths of documents without sentinel.  
+        sentinel: Scalar boolean. If True, then sentinel vectors are temporarily left concatenated 
+        to the query's and document's second dimension, letting the attention focus on nothing.  
 
     Returns:  
         A tuple containing:  
@@ -164,36 +179,35 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         A   = affinity
         A^T = affinity_t
         E^Q = query
-        E^D = document
+        E^D = documenttf.shape(other_tensor)[2]
         S^Q = summary_q
         S^D = summary_d
         C^D = coattention_d
     
     The dimenions' indices in Einstein summation notation are
         n = batch dimension
-        d = document dimension
         q = query dimension
+        d = document dimension
         h = hidden state dimension
     """
     if sentinel:
-        n, _, h = tf.shape(document)
-        sentinel = tf.constant(0, dtype=tf.float32, [n, 1, h])
-        document = tf.concat([sentinel, document], 1)
-        query = tf.concat([sentinel, query], 1)
+        document = concat_sentinel('document_sentinel', document)
         document_length += 1
+        query = concat_sentinel('query_sentinel', query)
         query_length += 1
     # TODO make sure masking is enough
-    unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q]
+    unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q] or [N, 1+D, 1+Q] if sentinel
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
     attention_p = tf.nn.softmax(affinity, dim=1)
-    unmasked_affinity_t = tf.transpose(unmasked_affinity, [0, 2, 1])  # [N, Q, D]
+    unmasked_affinity_t = tf.transpose(unmasked_affinity, [0, 2, 1])  # [N, Q, D] or [N, 1+Q, 1+D] if sentinel
     affinity_t = maybe_mask_affinity(unmasked_affinity_t, query_length)
     attention_q = tf.nn.softmax(affinity_t, dim=1)
+    summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, Q, 2H] or [N, 1+Q, 2H] if sentinel
+    summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, D, 2H] or [N, 1+D, 2H] if sentinel
     if sentinel:
-        document = document[:,1:,:]
-        query = query[:,1:,:]
-    summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, 2H, Q]
-    summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, 2H, D]
+        summary_d = summary_d[:,1:,:]
+        summary_q = summary_q[:,1:,:]
+        attention_q = attention_q[:,1:,1:]
     coattention_d = tf.einsum('nqh,nqd->ndh', summary_q, attention_q)
     return summary_q, summary_d, coattention_d
 

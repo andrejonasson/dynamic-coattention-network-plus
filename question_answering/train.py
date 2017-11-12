@@ -32,7 +32,7 @@ tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients."
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
 
 # Model hyperparameters
-tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped on non-recurrent connections.")
+tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped on non-recurrent connections.")  # Not implemented
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
@@ -132,7 +132,7 @@ def do_train(model, train, dev, eval_metric):
                 logging.info(f'Step {step}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
             
             # Final evaluation on full development set
-            if step != 0 and (step % 7000 == 0 or step == FLAGS.max_steps-1):
+            if step != 0 and (step == FLAGS.max_steps-1): #step % 7000 == 0 or
                 # TODO need to change Dev to full ~(700 paragraph length, 100 question length)
                 start_evaluate = timer()
                 dev_f1 = evaluate(session, model, dev, size=dev.length)
