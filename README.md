@@ -71,17 +71,17 @@ While the preprocessing is running you can continue with Step 3 in another termi
 ``` sh
 $ wget http://nlp.stanford.edu/data/glove.6B.zip -P download/dwr/
 ```
-to download Wikipedia 100/200/300 dimensional GLoVe word embeddings or
+to download Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or
 ``` sh
 $ wget http://nlp.stanford.edu/data/glove.42B.300d.zip -P download/dwr/
 ```
-for Common Crawl 300 dimensional GLoVe word embeddings
+for Common Crawl 300 dimensional GLoVe word embeddings (~1.8gb) (I suggest using Wikipedia first - processing Common Crawl requires much more time)
 
 Extract the Wikipedia embeddings
 ``` sh
 $ tar -xvzf download/dwr/glove.6B.zip --directory download/dwr/
 ```
-or the common crawl embeddings
+or the Common Crawl embeddings
 ``` sh
 $ tar -xvzf download/dwr/glove.42B.300d.zip --directory download/dwr/
 ```
@@ -89,19 +89,19 @@ $ tar -xvzf download/dwr/glove.42B.300d.zip --directory download/dwr/
 ``` sh
 $ python qa_data.py --glove_dim EMBEDDINGS_DIMENSIONS --glove_source SOURCE
 ```
-replacing `EMBEDDINGS_DIMENSIONS` by the word embedding size you want (100, 200, 300) and `SOURCE` by 'wiki' if using Wikipedia embeddings and 'crawl' if using common crawl embeddings (you may omit `--glove_dim` if you choose 'crawl'). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
+replacing `EMBEDDINGS_DIMENSIONS` by the word embedding size you want (100, 200, 300) and `SOURCE` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose 'crawl'). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
 
 Once complete run (Additionally, you may need to comment out the line importing `cat.py` in `train.py`.)
 ```
 python train.py
 ```
-to train the network. During training checkpoints and logs will be placed under a timestamped folder in checkpoints folder.
+to train the network. During training checkpoints and logs will be placed under a timestamped folder in tge `../checkpoints` folder.
 
 For Tensorboard, run
 ```
 tensorboard --logdir ../checkpoints
 ```
-The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and computational graph should be present among other metrics.
+The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
 
 ## Acknowledgements
 
