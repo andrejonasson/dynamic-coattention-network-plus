@@ -1,4 +1,4 @@
-""" Dynamic Coattention Network Plus, DCN+ [1] 
+""" Dynamic Coattention Network Plus, DCN+ [1]
 
 Dynamic Coattention Network (DCN+) consists of an encoder for a (query, document) pair.
 The encoder encodes the pair into a single representation in document space. This encoder
@@ -41,12 +41,16 @@ def encode(state_size, query, query_length, document, document_length):
         cell_type = tf.contrib.rnn.LSTMCell
         return cell_type(num_units=state_size)
 
-    with tf.variable_scope('encoder'):
+    with tf.variable_scope('initial_encoder'):
         query_encoding, document_encoding = query_document_encoder(get_cell(), get_cell(), query, query_length, document, document_length)
+    
+    with tf.variable_scope('coattention_1'):
         summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     with tf.variable_scope('summary_encoder'):
         summary_q_encoding, summary_d_encoding = query_document_encoder(get_cell(), get_cell(), summary_q_1, query_length, summary_d_1, document_length)
+    
+    with tf.variable_scope('coattention_2'):
         _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)        
 
     document_representations = [
@@ -86,8 +90,8 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
     Returns:  
         A tuple containing  
-            encoding of query, shape [N, Q, 2H]
-            encoding of document, shape [N, D, 2H]
+            encoding of query, shape [N, Q, 2H].  
+            encoding of document, shape [N, D, 2H].
     """
     query_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
         cell_fw = cell_fw,
@@ -118,7 +122,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
     return query_encoding, document_encoding
 
 def concat_sentinel(sentinel_name, other_tensor):
-    """ Left concatenates a sentinel vector along `other_tensor`'s second dimension
+    """ Left concatenates a sentinel vector along `other_tensor`'s second dimension.
 
     Args:  
         sentinel_name: Variable name of sentinel.  
@@ -128,8 +132,7 @@ def concat_sentinel(sentinel_name, other_tensor):
         other_tensor with sentinel.
     """
     sentinel = tf.get_variable(sentinel_name, other_tensor.get_shape()[2], tf.float32)
-    sentinel = tf.expand_dims(sentinel, axis=0)
-    sentinel = tf.expand_dims(sentinel, axis=0)
+    sentinel = tf.reshape(sentinel, (1, 1, -1))
     sentinel = tf.tile(sentinel, (tf.shape(other_tensor)[0], 1, 1))
     other_tensor = tf.concat([sentinel, other_tensor], 1)
     return other_tensor
@@ -169,9 +172,9 @@ def coattention(query, query_length, document, document_length, sentinel=False):
 
     Returns:  
         A tuple containing:  
-            summary matrix of the query, shape [N, Q, 2H]  
-            summary matrix of the document, shape [N, D, 2H]  
-            coattention matrix of the document and query in document space, shape [N, D, 2H]
+            summary matrix of the query, shape [N, Q, 2H].  
+            summary matrix of the document, shape [N, D, 2H].  
+            coattention matrix of the document and query in document space, shape [N, D, 2H].
     """
 
     """
@@ -219,9 +222,9 @@ def decode(encoding):
         encoding: Document representation, shape [N, D, ?].  
     
     Returns:  
-        A tuple containing
-            Logit for answer span start position, shape [N, D]  
-            Logit for answer span end position, shape [N, D]
+        A tuple containing  
+            Logit for answer span start position, shape [N, D].  
+            Logit for answer span end position, shape [N, D].
     """
     
     with tf.variable_scope('decode_start'):
