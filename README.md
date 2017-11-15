@@ -42,7 +42,7 @@ Instead of mixed objective the implementation will have cross entropy.
 
 ## Dependencies
 
-The project has only been tested for Python 3.6 with TensorFlow 1.3. Support for prior versions will not be added.
+The project has only been tested for Python 3.6 with TensorFlow 1.4. Support for prior versions will not be added.
 
 ## Instructions
 
@@ -50,7 +50,7 @@ Move under the project folder (the one containing the README.md)
 
 1. Install the requirements (you may want to create and activate a virtualenv)
 ``` sh
-pip -r requirements.txt
+$ pip -r requirements.txt
 ```
 
 2. To download squad run
@@ -59,11 +59,11 @@ $ wget https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json https:
 ```
 Download punkt if needed
 ``` sh
-python -m nltk.downloader punkt
+$ python -m nltk.downloader punkt
 ```
 then preprocess SQuAD using
 ```
-python preprocessing/squad_preprocess.py
+$ python preprocessing/squad_preprocess.py
 ```
 While the preprocessing is running you can continue with Step 3 in another terminal in the same folder. 
 
@@ -85,23 +85,23 @@ or the Common Crawl embeddings
 ``` sh
 $ tar -xvzf download/dwr/glove.42B.300d.zip --directory download/dwr/
 ```
-4. Change directory to the one containing the code (`qa_data.py` etc.) and then when Step 2 and 3 are done run
+4. When Step 2 and 3 are complete change directory to the one containing the code (`qa_data.py` etc.) and run
 ``` sh
 $ python qa_data.py --glove_dim EMBEDDINGS_DIMENSIONS --glove_source SOURCE
 ```
-replacing `EMBEDDINGS_DIMENSIONS` by the word embedding size you want (100, 200, 300) and `SOURCE` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose 'crawl'). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
+replacing `EMBEDDINGS_DIMENSIONS` by the word embedding size you want (100, 200, 300) and `SOURCE` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
 
 Once complete run (Additionally, you may need to comment out the line importing `cat.py` in `train.py`.)
+``` sh
+$ python train.py
 ```
-python train.py
-```
-to train the network. During training checkpoints and logs will be placed under a timestamped folder in tge `../checkpoints` folder.
+to train the network. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder. `train.py` contains all hyperparameters for the model.
 
 For Tensorboard, run
+``` sh
+$ tensorboard --logdir ../checkpoints
 ```
-tensorboard --logdir ../checkpoints
-```
-The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
+and if default settings are used you should be able to open your web browser and enter localhost:6006 to enter Tensorboard. The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
 
 ## Acknowledgements
 

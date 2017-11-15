@@ -88,6 +88,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
         document: A tensor of rank 3, shape [N, D, ?].  
         document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
+
     Returns:  
         A tuple containing  
             encoding of query, shape [N, Q, 2H].  
@@ -182,7 +183,7 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         A   = affinity
         A^T = affinity_t
         E^Q = query
-        E^D = documenttf.shape(other_tensor)[2]
+        E^D = document
         S^Q = summary_q
         S^D = summary_d
         C^D = coattention_d
@@ -198,7 +199,6 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         document_length += 1
         query = concat_sentinel('query_sentinel', query)
         query_length += 1
-    # TODO make sure masking is enough
     unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q] or [N, 1+D, 1+Q] if sentinel
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
     attention_p = tf.nn.softmax(affinity, dim=1)
@@ -215,7 +215,76 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     return summary_q, summary_d, coattention_d
 
 
-def decode(encoding):
+def decode(encoding, state_size=None, pool_size=4, max_iter=4):
+    if state_size is None:
+        state_size = 100 # encoding.get_shape()[2]/12  # 2*H * 6 / 12 = H
+    
+    batch_size = tf.shape(encoding)[0]
+    maxlen = tf.shape(encoding)[1]
+    rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
+    cell, state = rnn_dec.zero_state(batch_size, dtype=tf.float32)
+
+    # initialise start and end
+    start = tf.random_uniform((batch_size,), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+    end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+
+    # select start and end encodings
+    encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
+    encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
+    
+    answer_spans = []
+    answer_span_logits = []
+
+    # loop
+    # for i in range(max_iter):
+    with tf.variable_scope('start'):
+        r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # outputs  # [N, ]
+        r = tf.expand_dims(r, 1)
+        r = tf.tile(r, (1, maxlen, 1))
+        
+        alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
+        #start = tf.argmax(alpha, )
+        #encoding_start = # choose tf.gather? tf.gather_nd?
+    
+    with tf.variable_scope('end'):
+        r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
+        r = tf.expand_dims(r, 1)
+        r = tf.tile(r, (1, maxlen, 1))
+
+        beta = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
+        #end = tf.argmax(beta, axis=1)
+        #encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), answer_end], axis=1))
+
+    # answer_span_logits.append((alpha, beta))
+    # answer_spans.append((start, end))
+    
+    # if i > 0 and answer_spans[i-1] == answer_spans[i]:
+    #     break
+    #state = rnn_dec()  # TODO will need to split up into memory/output etc.
+    return alpha, beta # answer_span_logits
+
+def highway_maxout(inputs, hidden_size, pool_size):
+    layer1 = maxout_layer(inputs, hidden_size, pool_size)
+    layer2 = maxout_layer(layer1, hidden_size, pool_size)
+    
+    highway = tf.concat([layer1, layer2], -1)
+    output = maxout_layer(highway, 1, pool_size)
+    #output = tf.squeeze(output, -1)
+    return tf.reshape(output, (tf.shape(inputs)[0], tf.shape(inputs)[1]))  # TODO temp
+
+def mixture_of_experts():
+    pass
+
+def maxout_layer(inputs, outputs, pool_size):
+    pool = tf.layers.dense(inputs, outputs*pool_size)
+    pool = tf.reshape(pool, (-1, outputs, pool_size))  # possibly skip via num_units=outputs in next line
+    output = tf.contrib.layers.maxout(pool, 1)
+    output = tf.squeeze(output, -1)
+    return output
+
+def naive_decode(encoding):
     """ Decodes encoding to answer span logits.
 
     Args:  
