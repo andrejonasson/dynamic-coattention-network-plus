@@ -215,55 +215,114 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     return summary_q, summary_d, coattention_d
 
 
-def decode(encoding, state_size=None, pool_size=4, max_iter=4):
-    if state_size is None:
-        state_size = 100 # encoding.get_shape()[2]/12  # 2*H * 6 / 12 = H
+def decode(encoding, state_size=100, pool_size=4, max_iter=4):
+    """ DCN+ Decoder.
+    Args:  
+        encoding: 
+        state_size: 
+        pool_size: Integer, number of 
+        max_iter: Integer, maximum number of attempts for answer span start and end to settle.  
+    
+    Returns:  
+
+    """
     
     batch_size = tf.shape(encoding)[0]
     maxlen = tf.shape(encoding)[1]
-    rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
-    cell, state = rnn_dec.zero_state(batch_size, dtype=tf.float32)
+    
+    # initialise loop variables
+    with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
+        start = tf.random_uniform((batch_size,), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+        end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+        answer = tf.stack([start, end], axis=1)
+        logits = tf.TensorArray(tf.float32, size=max_iter)
+        logit_masks = tf.TensorArray(tf.float32, size=max_iter)
+        i = tf.constant(0, tf.int32)
+        rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
 
-    # initialise start and end
-    start = tf.random_uniform((batch_size,), maxval=tf.shape(encoding)[1], dtype=tf.int32)
-    end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+        state = (cell, h) = rnn_dec.zero_state(batch_size, dtype=tf.float32)
+        logit = decoder_body(encoding, h, answer, state_size, pool_size)
+        mask = tf.equal(answer, answer)  # make into explicit True
+        start = tf.argmax(logit[:, :, 0], axis=1)
+        end = tf.argmax(logit[:, :, 1], axis=1)
+        previous_answer = answer
+        answer = tf.stack([start, end], axis=1)
+        logit_masks = logit_masks.write(i, mask)
+        logits = logits.write(i, logit)
+        i = tf.constant(1, tf.int32)
 
-    # select start and end encodings
+        def loop_body(i, state, previous_answer, answer, logits, logit_masks):
+            start = answer[:, 0]
+            end = answer[:, 1]
+            encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
+            encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
+            output, state = rnn_dec(tf.concat([encoding_start, encoding_end], axis=1), state)  # TODO will need to split up into memory/output etc.
+
+            def before_initialising_iterations():
+                logit = decoder_body(encoding, output, answer, state_size, pool_size)
+                mask = tf.equal(answer, answer)  # make into explicit True
+                return logit, mask
+
+            def after_initialising_iterations():
+                c = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
+                c = tf.reshape(c, (-1,1,1))
+                c = tf.tile(c, [1, maxlen, 2])
+                logit = tf.where(c, decoder_body(encoding, output, answer, state_size, pool_size), logits.read(i-1))
+                mask = tf.not_equal(answer, previous_answer)
+                return logit, mask
+
+            logit, mask = tf.cond(tf.less(i, 2), 
+                before_initialising_iterations,
+                after_initialising_iterations
+            )
+            start = tf.cast(tf.argmax(logit[:, :, 0], axis=1), tf.int32)
+            end = tf.cast(tf.argmax(logit[:, :, 1], axis=1), tf.int32)
+            previous_answer = answer
+            answer = tf.stack([start, end], axis=1)
+            logit_masks = logit_masks.write(i, mask)
+            logits = logits.write(i, logit)
+            i = tf.add(i, tf.constant(1, tf.int32))
+            return i, state, previous_answer, answer, logits, logit_masks
+
+        def cond(i, state, previous_answer, answer, logits, logit_masks):
+            return tf.cond(tf.equal(i, 0), 
+                lambda: tf.constant(True, tf.bool),
+                lambda: tf.logical_and(
+                    tf.less(i, max_iter),
+                    tf.constant(True, tf.bool)#tf.reduce_any(tf.not_equal(previous_answer, answer))
+                )
+            )
+        
+        i, state, previous_answer, answer, logits, logit_masks = tf.while_loop(cond, loop_body, [i, state, previous_answer, previous_answer, logits, logit_masks])
+
+    # TODO add a summary "mean_i" to see the mean number of iterations
+    alphabeta = logits.read(i-1)
+    return alphabeta[:,:,0], alphabeta[:,:,1]# alpha, beta # answer_span_logits
+
+def decoder_body(encoding, state, answer, state_size, pool_size):
+    batch_size = tf.shape(encoding)[0]
+    maxlen = tf.shape(encoding)[1]
+    start = answer[:, 0]
+    end = answer[:, 1]
     encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
     encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
-    
-    answer_spans = []
-    answer_span_logits = []
 
-    # loop
-    # for i in range(max_iter):
-    with tf.variable_scope('start'):
+    with tf.variable_scope('start'):  # TODO need reuse
         r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # outputs  # [N, ]
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-        
         alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
-        #start = tf.argmax(alpha, )
-        #encoding_start = # choose tf.gather? tf.gather_nd?
     
     with tf.variable_scope('end'):
         r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-
         beta = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
-        #end = tf.argmax(beta, axis=1)
-        #encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), answer_end], axis=1))
-
-    # answer_span_logits.append((alpha, beta))
-    # answer_spans.append((start, end))
     
-    # if i > 0 and answer_spans[i-1] == answer_spans[i]:
-    #     break
-    #state = rnn_dec()  # TODO will need to split up into memory/output etc.
-    return alpha, beta # answer_span_logits
+    return tf.stack([alpha, beta], axis=2)
+    
 
 def highway_maxout(inputs, hidden_size, pool_size):
     layer1 = maxout_layer(inputs, hidden_size, pool_size)

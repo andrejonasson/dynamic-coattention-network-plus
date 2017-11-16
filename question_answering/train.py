@@ -36,7 +36,7 @@ tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped o
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-tf.app.flags.DEFINE_integer("embedding_size", 300, "Size of the pretrained vocabulary.")
+tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
