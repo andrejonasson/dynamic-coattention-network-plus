@@ -4,7 +4,7 @@ Dynamic Coattention Network (DCN+) consists of an encoder for a (query, document
 The encoder encodes the pair into a single representation in document space. This encoder
 implementation can easily be adapted to other use cases than Question Answering.
 
-The decoder implementation takes the encoding and returns answer span logits. Its
+The decoder implementation is passed the encoding and returns answer span logits. Its
 application is specific to the SQuAD dataset.
 
 [1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
@@ -16,6 +16,8 @@ Shape notation:
     D = Document max length  
     H = State size  
     R = Word embedding size  
+    xH = x times the state size H
+    C = Decoder state size
     ? = Wildcard size  
 """
 
@@ -215,10 +217,32 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     return summary_q, summary_d, coattention_d
 
 
-def decode(encoding, state_size=100, pool_size=4, max_iter=4):
-    """ DCN+ Decoder.
+def gather_encoding_start_end(encoding, answer):
+    """ Gathers the encodings representing the start and end of the answer span selected.
+
     Args:  
-        encoding: Tensor of rank 3, shape [N, D, ?]. Query-document encoding.  
+        encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
+        answer: Tensor of rank 2. Answer span.  
+    
+    Returns:  
+        A tuple containing  
+            Tensor of rank 2 [N, xH], containing encoding at start of answer span  
+            Tensor of rank 2 [N, xH], containing encoding at end of answer span
+    """
+    batch_size = tf.shape(encoding)[0]
+    start, end = answer[:, 0], answer[:, 1]
+    encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
+    encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
+    return encoding_start, encoding_end
+
+
+def decode(encoding, state_size=100, pool_size=4, max_iter=4):
+    """ DCN+ Dynamic Decoder.
+
+    Dynamically builds decoder graph. 
+
+    Args:  
+        encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
         state_size: Scalar integer. Size of state and highway network.  
         pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
         max_iter: Scalar integer. Maximum number of attempts for answer span start and end to settle.  
@@ -234,9 +258,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
         
         def state_machine(answer, state):
-            start, end = answer[:, 0], answer[:, 1]
-            encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
-            encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
+            encoding_start, encoding_end = gather_encoding_start_end(encoding, answer)
             output, state = lstm_dec(tf.concat([encoding_start, encoding_end], axis=1), state)
             return output, state
         
@@ -260,7 +282,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
                 return logit
 
             logit = tf.cond(
-                tf.equal(i, 0) | tf.reduce_all(not_settled),
+                tf.equal(i, 0),  # | tf.reduce_all(not_settled)
                 lambda: decoder_body(encoding, output, answer, state_size, pool_size),
                 calculate_not_settled_logits
             )
@@ -296,12 +318,22 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
 
 
 def decoder_body(encoding, state, answer, state_size, pool_size):
-    batch_size = tf.shape(encoding)[0]
+    """ Decoder feedforward network.  
+
+    Calculates answer span start and end logits.  
+
+    Args:  
+        encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
+        state: Tensor of rank 2, shape [N, D, C]. Current state of decoder state machine.  
+        answer: Tensor of rank 2, shape [N, 2]. Current iteration's answer.  
+        state_size: Scalar integer. Hidden units of highway maxout network.  
+        pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
+    
+    Returns:  
+        Tensor of rank 3, shape [N, D, 2]. Answer span logits for answer start and end.
+    """
     maxlen = tf.shape(encoding)[1]
-    start = answer[:, 0]
-    end = answer[:, 1]
-    encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
-    encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
+    encoding_start, encoding_end = gather_encoding_start_end(encoding, answer)
 
     with tf.variable_scope('start'):  # TODO need reuse
         r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
@@ -322,6 +354,14 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
 
 def highway_maxout(inputs, hidden_size, pool_size):
     """ Highway maxout network.
+
+    Args:  
+        inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to network.  
+        hidden_size: Scalar integer. Hidden units of highway maxout network.  
+        pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
+    
+    Returns:  
+        Tensor of rank 2, shape [N, D]. Logits.
     """
     layer1 = maxout_layer(inputs, hidden_size, pool_size)
     layer2 = maxout_layer(layer1, hidden_size, pool_size)
@@ -344,7 +384,7 @@ def naive_decode(encoding):
     """ Decodes encoding to answer span logits.
 
     Args:  
-        encoding: Document representation, shape [N, D, ?].  
+        encoding: Document representation, shape [N, D, xH].  
     
     Returns:  
         A tuple containing  
