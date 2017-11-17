@@ -232,24 +232,25 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
     
     # initialise loop variables
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
-        start = tf.random_uniform((batch_size,), maxval=tf.shape(encoding)[1], dtype=tf.int32)
-        end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=tf.shape(encoding)[1], dtype=tf.int32)
+        # TODO possibly just choose first and last encoding
+        start = tf.random_uniform((batch_size,), maxval=maxlen, dtype=tf.int32)
+        end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=maxlen, dtype=tf.int32)
         answer = tf.stack([start, end], axis=1)
         logits = tf.TensorArray(tf.float32, size=max_iter)
         logit_masks = tf.TensorArray(tf.float32, size=max_iter)
         i = tf.constant(0, tf.int32)
-        rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
 
+        rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
         state = (cell, h) = rnn_dec.zero_state(batch_size, dtype=tf.float32)
         logit = decoder_body(encoding, h, answer, state_size, pool_size)
-        mask = tf.equal(answer, answer)  # make into explicit True
+        mask = tf.tile([True], (batch_size,))
+        previous_answer = answer
         start = tf.argmax(logit[:, :, 0], axis=1)
         end = tf.argmax(logit[:, :, 1], axis=1)
-        previous_answer = answer
-        answer = tf.stack([start, end], axis=1)
+        answer = tf.cast(tf.stack([start, end], axis=1), tf.int32)
         logit_masks = logit_masks.write(i, mask)
         logits = logits.write(i, logit)
-        i = tf.constant(1, tf.int32)
+        i = i + 1
 
         def loop_body(i, state, previous_answer, answer, logits, logit_masks):
             start = answer[:, 0]
@@ -264,40 +265,44 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
                 return logit, mask
 
             def after_initialising_iterations():
-                c = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
-                c = tf.reshape(c, (-1,1,1))
-                c = tf.tile(c, [1, maxlen, 2])
-                logit = tf.where(c, decoder_body(encoding, output, answer, state_size, pool_size), logits.read(i-1))
-                mask = tf.not_equal(answer, previous_answer)
+                not_settled = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
+                enc_masked = tf.boolean_mask(encoding, not_settled)
+                output_masked = tf.boolean_mask(output, not_settled)
+                answer_masked = tf.boolean_mask(answer, not_settled)
+                new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
+                new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
+                logit = logits.read(i-1)  # TODO consumes previous value ?
+                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct
+                mask = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
                 return logit, mask
 
             logit, mask = tf.cond(tf.less(i, 2), 
                 before_initialising_iterations,
                 after_initialising_iterations
             )
-            start = tf.cast(tf.argmax(logit[:, :, 0], axis=1), tf.int32)
-            end = tf.cast(tf.argmax(logit[:, :, 1], axis=1), tf.int32)
+            start = tf.argmax(logit[:, :, 0], axis=1)
+            end = tf.argmax(logit[:, :, 1], axis=1)
             previous_answer = answer
-            answer = tf.stack([start, end], axis=1)
+            answer = tf.cast(tf.stack([start, end], axis=1))
             logit_masks = logit_masks.write(i, mask)
             logits = logits.write(i, logit)
-            i = tf.add(i, tf.constant(1, tf.int32))
-            return i, state, previous_answer, answer, logits, logit_masks
+            return i + 1, state, previous_answer, answer, logits, logit_masks
 
         def cond(i, state, previous_answer, answer, logits, logit_masks):
-            return tf.cond(tf.equal(i, 0), 
-                lambda: tf.constant(True, tf.bool),
-                lambda: tf.logical_and(
-                    tf.less(i, max_iter),
-                    tf.constant(True, tf.bool)#tf.reduce_any(tf.not_equal(previous_answer, answer))
-                )
+            return tf.logical_and(
+                tf.less(i, max_iter),
+                tf.reduce_any(tf.not_equal(previous_answer, answer))  # 15% speedup
             )
         
-        i, state, previous_answer, answer, logits, logit_masks = tf.while_loop(cond, loop_body, [i, state, previous_answer, previous_answer, logits, logit_masks])
-
+        i, state, previous_answer, answer, logits, logit_masks = tf.while_loop(cond, loop_body, [i, state, previous_answer, answer, logits, logit_masks])
+    # tf.summary.scalar(tf.reduce_mean(tf.cast(logits_masks.read(i-1), tf.float32)))
     # TODO add a summary "mean_i" to see the mean number of iterations
     alphabeta = logits.read(i-1)
     return alphabeta[:,:,0], alphabeta[:,:,1]# alpha, beta # answer_span_logits
+
+def decoder_maybe():
+    
+    decoder_body(encoding, state, answer, state_size, pool_size)
 
 def decoder_body(encoding, state, answer, state_size, pool_size):
     batch_size = tf.shape(encoding)[0]
