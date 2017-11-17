@@ -1,13 +1,16 @@
 """ Dynamic Coattention Network Plus, DCN+ [1]
 
-Dynamic Coattention Network (DCN+) consists of an encoder for a (query, document) pair.
+Dynamic Coattention Network (DCN+) consists of an encoder for a (query, document) pair and
+a dynamic decoder that iteratively searches for an answer span (answer_start, answer_end)
+that answers the query.
+
 The encoder encodes the pair into a single representation in document space. This encoder
 implementation can easily be adapted to other use cases than Question Answering.
 
 The decoder implementation is passed the encoding and returns answer span logits. Its
 application is specific to the SQuAD dataset.
 
-[1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, 
+[1] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering,
     Xiong et al, https://arxiv.org/abs/1711.00106
 
 Shape notation:  
@@ -217,23 +220,22 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     return summary_q, summary_d, coattention_d
 
 
-def gather_encoding_start_end(encoding, answer):
-    """ Gathers the encodings representing the start and end of the answer span selected.
+def start_and_end_encoding(encoding, answer):
+    """ Gathers the encodings representing the start and end of the answer span passed
+    and concatenates the encodings.
 
     Args:  
         encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
         answer: Tensor of rank 2. Answer span.  
     
-    Returns:  
-        A tuple containing  
-            Tensor of rank 2 [N, xH], containing encoding at start of answer span  
-            Tensor of rank 2 [N, xH], containing encoding at end of answer span
+    Returns:
+        Tensor of rank 2 [N, 2xH], containing the encodings of the start and end of the answer span
     """
     batch_size = tf.shape(encoding)[0]
     start, end = answer[:, 0], answer[:, 1]
     encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
     encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
-    return encoding_start, encoding_end
+    return tf.concat([encoding_start, encoding_end], axis=1)
 
 
 def decode(encoding, state_size=100, pool_size=4, max_iter=4):
@@ -257,11 +259,6 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         batch_size = tf.shape(encoding)[0]  # N
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
         
-        def state_machine(answer, state):
-            encoding_start, encoding_end = gather_encoding_start_end(encoding, answer)
-            output, state = lstm_dec(tf.concat([encoding_start, encoding_end], axis=1), state)
-            return output, state
-        
         def cond(i, state, not_settled, answer, logits, logit_masks):
             return tf.logical_and(
                 tf.less(i, max_iter),
@@ -269,7 +266,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
             )
 
         def loop_body(i, state, not_settled, answer, logits, logit_masks):
-            output, state = state_machine(answer, state)
+            output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
             
             def calculate_not_settled_logits():
                 enc_masked = tf.boolean_mask(encoding, not_settled)
@@ -333,17 +330,17 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
         Tensor of rank 3, shape [N, D, 2]. Answer span logits for answer start and end.
     """
     maxlen = tf.shape(encoding)[1]
-    encoding_start, encoding_end = gather_encoding_start_end(encoding, answer)
+    span_encoding = start_and_end_encoding(encoding, answer)
 
     with tf.variable_scope('start'):  # TODO need reuse
-        r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
+        r_input = tf.concat([state, span_encoding], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # outputs  # [N, ]
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
         alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
     
     with tf.variable_scope('end'):
-        r_input = tf.concat([state, encoding_start, encoding_end], axis=1)
+        r_input = tf.concat([state, span_encoding], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
