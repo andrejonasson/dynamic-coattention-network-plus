@@ -27,11 +27,11 @@ def encode(state_size, query, query_length, document, document_length):
     Encodes query document pairs into a document-query representations in document space.
 
     Args:  
-        state_size: A scalar integer. State size of RNN cell encoders.  
-        query: A tensor of rank 3, shape [N, Q, R].  
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
-        document: A tensor of rank 3, shape [N, D, R].  
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
+        state_size: Scalar integer. State size of RNN cell encoders.  
+        query: Tensor of rank 3, shape [N, Q, R].  
+        query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
+        document: Tensor of rank 3, shape [N, D, R].  
+        document_length: Tensor of rank 1, shape [N]. Lengths of documents.  
     
     Returns:  
         Merged representation of query and document in document space, shape [N, D, 2H].
@@ -84,10 +84,10 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
     Args:  
         cell_fw: RNNCell for forward direction encoding.  
         cell_bw: RNNCell for backward direction encoding.  
-        query: A tensor of rank 3, shape [N, Q, ?].  
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries.  
-        document: A tensor of rank 3, shape [N, D, ?].  
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents.  
+        query: Tensor of rank 3, shape [N, Q, ?].  
+        query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
+        document: Tensor of rank 3, shape [N, D, ?].  
+        document_length: Tensor of rank 1, shape [N]. Lengths of documents.  
 
     Returns:  
         A tuple containing  
@@ -127,7 +127,7 @@ def concat_sentinel(sentinel_name, other_tensor):
 
     Args:  
         sentinel_name: Variable name of sentinel.  
-        other_tensor: A rank 3 Tensor to left concatenate sentinel to.  
+        other_tensor: Tensor of rank 3 to left concatenate sentinel to.  
 
     Returns:  
         other_tensor with sentinel.
@@ -145,8 +145,8 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     applying softmax.  
 
     Args:  
-        affinity: A tensor of rank 3, of shape [N, D or Q, Q or D] where attention logits are in the second dimension.  
-        sequence_length: A tensor of rank 1, of shape [N]. Lengths of second dimension of the affinity.  
+        affinity: Tensor of rank 3, shape [N, D or Q, Q or D] where attention logits are in the second dimension.  
+        sequence_length: Tensor of rank 1, shape [N]. Lengths of second dimension of the affinity.  
         affinity_mask_value: (optional) Value to mask affinity with.  
     
     Returns:  
@@ -164,10 +164,10 @@ def coattention(query, query_length, document, document_length, sentinel=False):
     """ DCN+ Coattention layer.
     
     Args:  
-        query: A tensor of rank 3, shape [N, Q, 2H].  
-        query_length: A tensor of rank 1, shape [N]. Lengths of queries without sentinel.  
-        document: A tensor of rank 3, shape [N, D, 2H].   
-        document_length: A tensor of rank 1, shape [N]. Lengths of documents without sentinel.  
+        query: Tensor of rank 3, shape [N, Q, 2H].  
+        query_length: Tensor of rank 1, shape [N]. Lengths of queries without sentinel.  
+        document: Tensor of rank 3, shape [N, D, 2H].   
+        document_length: Tensor of rank 1, shape [N]. Lengths of documents without sentinel.  
         sentinel: Scalar boolean. If True, then sentinel vectors are temporarily left concatenated 
         to the query's and document's second dimension, letting the attention focus on nothing.  
 
@@ -218,93 +218,82 @@ def coattention(query, query_length, document, document_length, sentinel=False):
 def decode(encoding, state_size=100, pool_size=4, max_iter=4):
     """ DCN+ Decoder.
     Args:  
-        encoding: Rank 3 Tensor of shape [N, D, ?], containing query-document encoding.  
-        state_size: Integer, decides size of state and highway network.  
-        pool_size: Integer, number of units that are max pooled in maxout network.  
-        max_iter: Integer, maximum number of attempts for answer span start and end to settle.  
+        encoding: Tensor of rank 3, shape [N, D, ?]. Query-document encoding.  
+        state_size: Scalar integer. Size of state and highway network.  
+        pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
+        max_iter: Scalar integer. Maximum number of attempts for answer span start and end to settle.  
     
     Returns:  
         A tuple containing  
             TensorArray of answer span logits for each iteration.  
             TensorArray of logit masks for each iteration.
     """
-    
-    batch_size = tf.shape(encoding)[0]
-    maxlen = tf.shape(encoding)[1]
-    
-    # initialise loop variables
+
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
-        # TODO possibly just choose first and last encoding
-        start = tf.random_uniform((batch_size,), maxval=maxlen, dtype=tf.int32)
-        end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=maxlen, dtype=tf.int32)
-        answer = tf.stack([start, end], axis=1)
-        logits = tf.TensorArray(tf.float32, size=max_iter)
-        logit_masks = tf.TensorArray(tf.float32, size=max_iter)
-        i = tf.constant(0, tf.int32)
-
-        rnn_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
-        state = (cell, h) = rnn_dec.zero_state(batch_size, dtype=tf.float32)
-        logit = decoder_body(encoding, h, answer, state_size, pool_size)
-        mask = tf.tile([True], (batch_size,))
-        previous_answer = answer
-        start = tf.argmax(logit[:, :, 0], axis=1)
-        end = tf.argmax(logit[:, :, 1], axis=1)
-        answer = tf.cast(tf.stack([start, end], axis=1), tf.int32)
-        logit_masks = logit_masks.write(i, mask)
-        logits = logits.write(i, logit)
-        i = i + 1
-
-        def loop_body(i, state, previous_answer, answer, logits, logit_masks):
-            start = answer[:, 0]
-            end = answer[:, 1]
+        batch_size = tf.shape(encoding)[0]  # N
+        lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
+        
+        def state_machine(answer, state):
+            start, end = answer[:, 0], answer[:, 1]
             encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
             encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
-            output, state = rnn_dec(tf.concat([encoding_start, encoding_end], axis=1), state)  # TODO will need to split up into memory/output etc.
+            output, state = lstm_dec(tf.concat([encoding_start, encoding_end], axis=1), state)
+            return output, state
+        
+        def cond(i, state, not_settled, answer, logits, logit_masks):
+            return tf.logical_and(
+                tf.less(i, max_iter),
+                tf.reduce_any(not_settled)
+            )
 
-            def before_initialising_iterations():
-                logit = decoder_body(encoding, output, answer, state_size, pool_size)
-                mask = tf.equal(answer, answer)  # make into explicit True
-                return logit, mask
-
-            def after_initialising_iterations():
-                not_settled = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
+        def loop_body(i, state, not_settled, answer, logits, logit_masks):
+            output, state = state_machine(answer, state)
+            
+            def calculate_not_settled_logits():
                 enc_masked = tf.boolean_mask(encoding, not_settled)
                 output_masked = tf.boolean_mask(output, not_settled)
                 answer_masked = tf.boolean_mask(answer, not_settled)
                 new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
                 new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
-                logit = logits.read(i-1)  # TODO consumes previous value ?
-                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct
-                mask = tf.reduce_any(tf.not_equal(answer, previous_answer), axis=1)
-                return logit, mask
+                logit = logits.read(i-1)
+                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct  # TODO consumes previous value ?
+                return logit
 
-            logit, mask = tf.cond(tf.less(i, 2), 
-                before_initialising_iterations,
-                after_initialising_iterations
+            logit = tf.cond(
+                tf.equal(i, 0) | tf.reduce_all(not_settled),
+                lambda: decoder_body(encoding, output, answer, state_size, pool_size),
+                calculate_not_settled_logits
             )
-            start = tf.argmax(logit[:, :, 0], axis=1)
-            end = tf.argmax(logit[:, :, 1], axis=1)
-            previous_answer = answer
-            answer = tf.cast(tf.stack([start, end], axis=1))
-            logit_masks = logit_masks.write(i, mask)
+            start = tf.argmax(logit[:, :, 0], axis=1, output_type=tf.int32)
+            end = tf.argmax(logit[:, :, 1], axis=1, output_type=tf.int32)
+            new_answer = tf.stack([start, end], axis=1)
+            not_settled = tf.cond(
+                tf.equal(i, 0), 
+                lambda: tf.tile([True], [batch_size]),
+                lambda: tf.reduce_any(tf.not_equal(answer, new_answer), axis=1)
+            )
+            logit_masks = logit_masks.write(i, not_settled)
             logits = logits.write(i, logit)
-            return i + 1, state, previous_answer, answer, logits, logit_masks
-
-        def cond(i, state, previous_answer, answer, logits, logit_masks):
-            return tf.logical_and(
-                tf.less(i, max_iter),
-                tf.reduce_any(tf.not_equal(previous_answer, answer))  # 15% speedup
-            )
+            return i + 1, state, not_settled, new_answer, logits, logit_masks
         
-        i, state, previous_answer, answer, logits, logit_masks = tf.while_loop(cond, loop_body, [i, state, previous_answer, answer, logits, logit_masks])
+        # initialise loop variables
+        # TODO possibly just choose first and last encoding
+        maxlen = tf.shape(encoding)[1]
+        start = tf.random_uniform((batch_size,), maxval=maxlen, dtype=tf.int32)
+        end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=maxlen, dtype=tf.int32)
+        answer = tf.stack([start, end], axis=1)
+        state = lstm_dec.zero_state(batch_size, dtype=tf.float32)
+        not_settled = tf.tile([True], (batch_size,))
+        
+        logits = tf.TensorArray(tf.float32, size=max_iter)
+        logit_masks = tf.TensorArray(tf.float32, size=max_iter)
+        loop_vars = [0, state, not_settled, answer, logits, logit_masks]
+        i, _, _, answer, logits, logit_masks = tf.while_loop(cond, loop_body, loop_vars)
     # tf.summary.scalar(tf.reduce_mean(tf.cast(logits_masks.read(i-1), tf.float32)))
     # TODO add a summary "mean_i" to see the mean number of iterations
     alphabeta = logits.read(i-1)
     return alphabeta[:,:,0], alphabeta[:,:,1]# alpha, beta # answer_span_logits
 
-def decoder_maybe():
-    
-    decoder_body(encoding, state, answer, state_size, pool_size)
 
 def decoder_body(encoding, state, answer, state_size, pool_size):
     batch_size = tf.shape(encoding)[0]
@@ -332,12 +321,13 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
     
 
 def highway_maxout(inputs, hidden_size, pool_size):
+    """ Highway maxout network.
+    """
     layer1 = maxout_layer(inputs, hidden_size, pool_size)
     layer2 = maxout_layer(layer1, hidden_size, pool_size)
     
     highway = tf.concat([layer1, layer2], -1)
     output = maxout_layer(highway, 1, pool_size)
-    #output = tf.squeeze(output, -1)
     return tf.reshape(output, (tf.shape(inputs)[0], tf.shape(inputs)[1]))  # TODO temp
 
 def mixture_of_experts():
