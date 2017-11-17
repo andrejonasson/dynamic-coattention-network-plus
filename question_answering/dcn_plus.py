@@ -218,13 +218,15 @@ def coattention(query, query_length, document, document_length, sentinel=False):
 def decode(encoding, state_size=100, pool_size=4, max_iter=4):
     """ DCN+ Decoder.
     Args:  
-        encoding: 
-        state_size: 
-        pool_size: Integer, number of 
+        encoding: Rank 3 Tensor of shape [N, D, ?], containing query-document encoding.  
+        state_size: Integer, decides size of state and highway network.  
+        pool_size: Integer, number of units that are max pooled in maxout network.  
         max_iter: Integer, maximum number of attempts for answer span start and end to settle.  
     
     Returns:  
-
+        A tuple containing  
+            TensorArray of answer span logits for each iteration.  
+            TensorArray of logit masks for each iteration.
     """
     
     batch_size = tf.shape(encoding)[0]
