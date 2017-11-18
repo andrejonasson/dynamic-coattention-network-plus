@@ -61,11 +61,11 @@ Download punkt if needed
 ``` sh
 $ python -m nltk.downloader punkt
 ```
-then preprocess SQuAD using
+then change directory to the one containing the code (`qa_data.py` etc.) and preprocess SQuAD using
 ```
 $ python preprocessing/squad_preprocess.py
 ```
-While the preprocessing is running you can continue with Step 3 in another terminal in the same folder. 
+While the preprocessing is running you can continue with Step 3 in another terminal in the project folder. 
 
 3. Issue the command
 ``` sh

@@ -27,7 +27,7 @@ Shape notation:
 import tensorflow as tf
 
 def encode(state_size, query, query_length, document, document_length):
-    """ DCN+ encoder.
+    """ DCN+ deep residual coattention encoder.
     
     Encodes query document pairs into a document-query representations in document space.
 
