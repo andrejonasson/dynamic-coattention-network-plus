@@ -269,7 +269,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         not_settled = tf.tile([True], (batch_size,))
         
         logits = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
-        logit_masks = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
+        logit_masks = tf.TensorArray(tf.bool, size=max_iter, clear_after_read=False)
 
         for i in range(max_iter):
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
@@ -304,8 +304,9 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
             answer = new_answer
             logit_masks = logit_masks.write(i, not_settled)
             logits = logits.write(i, logit)
-    tf.summary.scalar('mean_iter_until_settling', tf.reduce_mean(tf.reduce_sum(logit_masks.stack(),axis=1)))
-    alphabeta = logits.read(max_iter-1)
+
+    tf.summary.scalar('mean_iter_until_settling', tf.reduce_mean(tf.reduce_sum(tf.to_int32(logit_masks.stack()), axis=1)))
+
     return logits
 
 
@@ -375,7 +376,20 @@ def maxout_layer(inputs, outputs, pool_size):
     return output
 
 
-def loss(logits, answer_span, max_iter=4):
+def loss(logits, answer_span, max_iter):
+    """ Calulates cumulative loss over the iterations
+
+    Args:  
+        logits: TensorArray of Tensors of rank 2 [N, D, 2] of size max_iter. Contains logits of start 
+        and end of answer span  
+        answer_span: Integer placeholder containing indices of true answer spans [N, 2].
+        max_iter: Scalar integer, Maximum number of iterations the decoder is run.
+
+    Returns:  
+        Mean cross entropy loss across iterations and batch. Mean is used instead of sum to make loss be 
+        on same scale as other methods.
+
+    """
     batch_size = tf.shape(answer_span)[0]
     logits = logits.concat()
     answer_span_repeated = tf.tile(answer_span, (max_iter, 1))
@@ -385,7 +399,7 @@ def loss(logits, answer_span, max_iter=4):
     start_loss = tf.stack(tf.split(start_loss, max_iter), axis=1)
     end_loss = tf.stack(tf.split(end_loss, max_iter), axis=1)
 
-    loss_per_example = tf.reduce_sum(start_loss + end_loss, axis=1)
+    loss_per_example = tf.reduce_mean(start_loss + end_loss, axis=1)
     loss = tf.reduce_mean(loss_per_example)
     return loss
 

@@ -33,16 +33,14 @@ class DCNPlus:
             logits = decode(encoding, self.hparams['state_size'], self.hparams['pool_size'], self.hparams['max_iter'])
 
         with tf.variable_scope('loss'):
-            self.loss = loss(logits, self.answer_span)
+            self.loss = loss(logits, self.answer_span, max_iter=self.hparams['max_iter'])
 
-        with tf.variable_scope('last_iter_results')
-            last_iter_logit = logits.read(hparams['max_iter']-1)
+        with tf.variable_scope('last_iter_results'):
+            last_iter_logit = logits.read(self.hparams['max_iter']-1)
             start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
             start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=start_logit, labels=self.answer_span[:, 0], name='start_loss')
             end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=end_logit, labels=self.answer_span[:, 1], name='end_loss')
-            loss_per_example = start_loss + end_loss
-            last_loss = tf.reduce_mean(loss_per_example)
-
+            last_loss = tf.reduce_mean(start_loss + end_loss)
             self.answer = (tf.argmax(start_logit, axis=1), tf.argmax(end_logit, axis=1))
 
         global_step = tf.train.get_or_create_global_step()
