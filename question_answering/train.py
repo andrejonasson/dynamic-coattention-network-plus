@@ -12,6 +12,7 @@ import numpy as np
 from utils import initialize_vocab, get_normalized_train_dir, evaluate, get_data_paths
 from cat import Graph 
 from model import QASystem
+from dcn_plus_model import DCNPlus
 # from baseline import encode, decode
 from dcn_plus import encode, decode
 from dataset import SquadDataset
@@ -37,6 +38,10 @@ tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
+
+# DCN+ hyperparameters
+tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
+tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
@@ -161,9 +166,9 @@ def main(_):
     # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
     
     # Build model
-    model = QASystem(encode, decode, embeddings, FLAGS.__flags)
+    #model = QASystem(encode, decode, embeddings, FLAGS.__flags)
     #model = Graph(embeddings, is_training=True)
-
+    model = DCNPlus(embeddings, FLAGS.__flags)
     do_train(model, train, dev, evaluate)
     # if not os.path.exists(FLAGS.log_dir):
     #     os.makedirs(FLAGS.log_dir)

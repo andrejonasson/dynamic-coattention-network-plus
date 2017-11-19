@@ -268,8 +268,8 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         state = lstm_dec.zero_state(batch_size, dtype=tf.float32)
         not_settled = tf.tile([True], (batch_size,))
         
-        logits = tf.TensorArray(tf.float32, size=max_iter)
-        logit_masks = tf.TensorArray(tf.float32, size=max_iter)
+        logits = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
+        logit_masks = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
 
         for i in range(max_iter):
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
@@ -281,7 +281,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
                 new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
                 new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
                 logit = logits.read(i-1)
-                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct  # TODO consumes previous value ?
+                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct
                 return logit
 
             logit = tf.cond(
@@ -304,11 +304,9 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
             answer = new_answer
             logit_masks = logit_masks.write(i, not_settled)
             logits = logits.write(i, logit)
-
-    # tf.summary.scalar(tf.reduce_mean(tf.cast(logits_masks.read(i-1), tf.float32)))
-    # TODO add a summary "mean_i" to see the mean number of iterations
+    tf.summary.scalar('mean_iter_until_settling', tf.reduce_mean(tf.reduce_sum(logit_masks.stack(),axis=1)))
     alphabeta = logits.read(max_iter-1)
-    return alphabeta[:,:,0], alphabeta[:,:,1]# alpha, beta # answer_span_logits
+    return logits
 
 
 def decoder_body(encoding, state, answer, state_size, pool_size):
@@ -377,16 +375,15 @@ def maxout_layer(inputs, outputs, pool_size):
     return output
 
 
-def loss(logits, answer_span, iteration_mask=None, mask_settled=False):
-    batch_size = answer_span.shape()[0]
-    max_iter = logits.size()
+def loss(logits, answer_span, max_iter=4):
+    batch_size = tf.shape(answer_span)[0]
     logits = logits.concat()
     answer_span_repeated = tf.tile(answer_span, (max_iter, 1))
 
     start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits[:, :, 0], labels=answer_span_repeated[:, 0], name='start_loss')
     end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits[:, :, 1], labels=answer_span_repeated[:, 1], name='end_loss')
     start_loss = tf.stack(tf.split(start_loss, max_iter), axis=1)
-    end_loss = tf.stack(tf.split(start_loss, max_iter), axis=1)
+    end_loss = tf.stack(tf.split(end_loss, max_iter), axis=1)
 
     loss_per_example = tf.reduce_sum(start_loss + end_loss, axis=1)
     loss = tf.reduce_mean(loss_per_example)
