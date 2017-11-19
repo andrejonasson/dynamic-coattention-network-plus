@@ -116,7 +116,7 @@ def do_train(model, train, dev, eval_metric):
                 print(f'Step {step}, loss {mean_loss:.2f}')
             
             # Train/Dev Evaluation
-            if eval_metric is not None and step != 0 and (step == 200 or step % 500 == 0):
+            if False and eval_metric is not None and step != 0 and (step == 200 or step % 500 == 0):
                 start_evaluate = timer()
                 train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
                 train_summary_writer.add_summary(

@@ -5,7 +5,7 @@ a dynamic decoder that iteratively searches for an answer span (answer_start, an
 that answers the query.
 
 The encoder encodes the pair into a single representation in document space. This encoder
-implementation can easily be adapted to other use cases than Question Answering.
+implementation can easily be adapted to other use cases than SQuAD dataset.
 
 The decoder implementation is passed the encoding and returns answer span logits. Its
 application is specific to the SQuAD dataset.
@@ -257,13 +257,11 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
 
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
         batch_size = tf.shape(encoding)[0]  # N
+        maxlen = tf.shape(encoding)[1]
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
-        
+
         def cond(i, state, not_settled, answer, logits, logit_masks):
-            return tf.logical_and(
-                tf.less(i, max_iter),
-                tf.reduce_any(not_settled)
-            )
+            return tf.less(i, max_iter) & tf.reduce_any(not_settled)  # check if gives computational advantage over just dynamic stitch, o.w. remove
 
         def loop_body(i, state, not_settled, answer, logits, logit_masks):
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
@@ -279,9 +277,9 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
                 return logit
 
             logit = tf.cond(
-                tf.equal(i, 0),  # | tf.reduce_all(not_settled)
+                tf.equal(i, 0) | tf.reduce_all(not_settled),
                 lambda: decoder_body(encoding, output, answer, state_size, pool_size),
-                calculate_not_settled_logits
+                calculate_not_settled_logits,
             )
             start = tf.argmax(logit[:, :, 0], axis=1, output_type=tf.int32)
             end = tf.argmax(logit[:, :, 1], axis=1, output_type=tf.int32)
@@ -297,7 +295,6 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         
         # initialise loop variables
         # TODO possibly just choose first and last encoding
-        maxlen = tf.shape(encoding)[1]
         start = tf.random_uniform((batch_size,), maxval=maxlen, dtype=tf.int32)
         end = tf.random_uniform((batch_size,), minval=tf.reduce_max(start), maxval=maxlen, dtype=tf.int32)
         answer = tf.stack([start, end], axis=1)
@@ -308,6 +305,9 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         logit_masks = tf.TensorArray(tf.float32, size=max_iter)
         loop_vars = [0, state, not_settled, answer, logits, logit_masks]
         i, _, _, answer, logits, logit_masks = tf.while_loop(cond, loop_body, loop_vars)
+        
+        (max_iter - i) * [logits.read(i-1)]
+
     # tf.summary.scalar(tf.reduce_mean(tf.cast(logits_masks.read(i-1), tf.float32)))
     # TODO add a summary "mean_i" to see the mean number of iterations
     alphabeta = logits.read(i-1)
@@ -332,7 +332,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
     maxlen = tf.shape(encoding)[1]
     span_encoding = start_and_end_encoding(encoding, answer)
 
-    with tf.variable_scope('start'):  # TODO need reuse
+    with tf.variable_scope('start'):  # TODO need reuse, although currently getting it from tf.AUTO_REUSE
         r_input = tf.concat([state, span_encoding], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # outputs  # [N, ]
         r = tf.expand_dims(r, 1)
@@ -367,8 +367,10 @@ def highway_maxout(inputs, hidden_size, pool_size):
     output = maxout_layer(highway, 1, pool_size)
     return tf.reshape(output, (tf.shape(inputs)[0], tf.shape(inputs)[1]))  # TODO temp
 
+
 def mixture_of_experts():
     pass
+
 
 def maxout_layer(inputs, outputs, pool_size):
     pool = tf.layers.dense(inputs, outputs*pool_size)
@@ -376,6 +378,16 @@ def maxout_layer(inputs, outputs, pool_size):
     output = tf.contrib.layers.maxout(pool, 1)
     output = tf.squeeze(output, -1)
     return output
+
+
+def loss(logits: tf.TensorArray, iteration_mask:tf.TensorArray=None, mask_settled=False):
+    batch_size, maxlen, _ = logits.get(0).shape()
+    max_iter = logits.size()
+
+    logits = logits.concat()
+    logits.reshape(batch_size, max_iter, -1)
+    return loss
+
 
 def naive_decode(encoding):
     """ Decodes encoding to answer span logits.
