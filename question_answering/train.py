@@ -10,11 +10,9 @@ import tensorflow as tf
 import numpy as np
 
 from utils import initialize_vocab, get_normalized_train_dir, evaluate, get_data_paths
-from cat import Graph 
-from model import QASystem
+from cat import Graph
+from baseline_model import Baseline
 from dcn_plus_model import DCNPlus
-# from baseline import encode, decode
-from dcn_plus import encode, decode
 from dataset import SquadDataset
 
 logging.basicConfig(level=logging.INFO)
@@ -64,22 +62,18 @@ tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embeddin
 
 FLAGS = tf.app.flags.FLAGS
 
+# TODO batch evaluation
 # TODO hyperparameter random search
+# TODO add shell
 # TODO add flag for what model should be used
 # TODO implement early stopping, or reload
 # TODO implement EM
-# TODO make framework compatible with VM Image on GCLOUD
 # TODO write all hyperparams to checkpoints folder, write final Dev set eval to a file that's easily inspected
 
 def exact_match(prediction, truth):
     pass
 
 def do_train(model, train, dev, eval_metric):
-    # if hasattr(model, 'graph'):
-    #     graph = model.graph
-    # else:
-    #     graph = tf.get_default_graph()
-
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
 
     # Two writers needed to enable plotting two lines in one plot
@@ -204,7 +198,7 @@ def test_overfit():
         'clip_gradients': True,
         'max_gradient_norm': 5.0
     }
-    model = QASystem(encode, decode, embeddings, test_hparams)
+    model = Baseline(embeddings, test_hparams)
     
     epochs = 100
     test_size = 32

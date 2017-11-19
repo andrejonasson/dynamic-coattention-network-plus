@@ -7,22 +7,14 @@ from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_
 from tensorflow import variable_scope
 
 from evaluate import exact_match_score, f1_score
-
-
+from baseline import encode, decode
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 
-class QASystem:
-    def __init__(self, encoder, decoder, pretrained_embeddings, hparams):
-        """
-        Initializes your System
-
-        :param encoder: an encoder that you constructed in train.py
-        :param decoder: a decoder that you constructed in train.py
-        :param args: pass in more arguments as needed
-        """
+class Baseline:
+    def __init__(self, pretrained_embeddings, hparams):
         self.hparams = copy.copy(hparams)
-        self.encode = encoder
-        self.decode = decoder
+        self.encode = encode
+        self.decode = decode
         self.pretrained_embeddings = pretrained_embeddings
 
         # Setup placeholders
