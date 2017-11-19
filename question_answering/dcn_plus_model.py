@@ -1,11 +1,7 @@
-import time
 import copy
-import numpy as np
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
-from tensorflow import variable_scope
 from dcn_plus import encode, decode, loss
-from evaluate import exact_match_score, f1_score
 
 
 # TODO output from decoder + loss definition (_maybe_mask_score?)

@@ -233,7 +233,7 @@ def start_and_end_encoding(encoding, answer):
     """
     batch_size = tf.shape(encoding)[0]
     start, end = answer[:, 0], answer[:, 1]
-    encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))
+    encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))  # May be causing UserWarning
     encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
     return tf.concat([encoding_start, encoding_end], axis=1)
 
@@ -256,7 +256,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
     """
 
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
-        batch_size = tf.shape(encoding)[0]  # N
+        batch_size = tf.shape(encoding)[0]
         maxlen = tf.shape(encoding)[1]
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
 
@@ -267,45 +267,41 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
         answer = tf.stack([start, end], axis=1)
         state = lstm_dec.zero_state(batch_size, dtype=tf.float32)
         not_settled = tf.tile([True], (batch_size,))
-        
         logits = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
-        logit_masks = tf.TensorArray(tf.bool, size=max_iter, clear_after_read=False)
 
+        def calculate_not_settled_logits(not_settled, answer, output, prev_logit):
+            enc_masked = tf.boolean_mask(encoding, not_settled)
+            output_masked = tf.boolean_mask(output, not_settled)
+            answer_masked = tf.boolean_mask(answer, not_settled)
+            new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
+            new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
+            logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [prev_logit, new_logit])  # TODO test that correct
+            return logit
+        
         for i in range(max_iter):
-            output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
+            if i > 1:
+                tf.summary.scalar(f'not_settled_iter_{i}', tf.reduce_sum(tf.cast(not_settled, tf.float32)))
             
-            def calculate_not_settled_logits():
-                enc_masked = tf.boolean_mask(encoding, not_settled)
-                output_masked = tf.boolean_mask(output, not_settled)
-                answer_masked = tf.boolean_mask(answer, not_settled)
-                new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
-                new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
-                logit = logits.read(i-1)
-                logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [logit, new_logit])  # TODO test that correct
-                return logit
-
-            logit = tf.cond(
-                tf.equal(i, 0) | tf.reduce_all(not_settled),
-                lambda: decoder_body(encoding, output, answer, state_size, pool_size),
-                lambda: tf.cond(tf.reduce_any(not_settled),
-                    calculate_not_settled_logits,
-                    lambda: logits.read(i-1)
+            output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
+            if i == 0:
+                logit = decoder_body(encoding, output, answer, state_size, pool_size)
+            else:
+                prev_logit = logits.read(i-1)
+                logit = tf.cond(
+                    tf.reduce_any(not_settled),
+                    lambda: calculate_not_settled_logits(not_settled, answer, output, prev_logit),
+                    lambda: prev_logit
                 )
-            )
             start = tf.argmax(logit[:, :, 0], axis=1, output_type=tf.int32)
             end = tf.argmax(logit[:, :, 1], axis=1, output_type=tf.int32)
             new_answer = tf.stack([start, end], axis=1)
-            not_settled = tf.cond(
-                tf.equal(i, 0), 
-                lambda: tf.tile([True], [batch_size]),
-                lambda: tf.reduce_any(tf.not_equal(answer, new_answer), axis=1)
-            )
+            if i == 0:
+                not_settled = tf.tile([True], (batch_size,))
+            else:
+                not_settled = tf.reduce_any(tf.not_equal(answer, new_answer), axis=1)
             not_settled = tf.reshape(not_settled, (batch_size,))  # needed to establish dimensions
             answer = new_answer
-            logit_masks = logit_masks.write(i, not_settled)
             logits = logits.write(i, logit)
-
-    tf.summary.scalar('mean_iter_until_settling', tf.reduce_mean(tf.reduce_sum(tf.to_int32(logit_masks.stack()), axis=1)))
 
     return logits
 
