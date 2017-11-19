@@ -1,22 +1,21 @@
-Question Answering / Reading Comprehension
-==========================================
+Dynamic Coattention Network Plus - Question Answering
+=====================================================
 
 Work in progress.
 
-The project will include some reimplementations of papers on coattention mechanisms. 
-
-Networks implemented: A simple baseline model (BiLSTM + Coattention + Naive decoder) and a partial Dynamic Coattention Network Plus (DCN+) (work in progress).
-
 ## Introduction
 
-SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning problem where the model receives a question and a passage and is tasked with answering the question using the passage. The answers are limited to spans of text. The training data consists of (question, paragraph, answer span) triplets. Due to the nature of the task, combining the information contained in the passage with the question posed is paramount to achieve good performance. (See references for more information)
-
-Recurrent neural networks that combine the information from the question and paragraph using coattention mechanisms such as [1] and [2] have achieved the best results in the competition so far. This project aims to reimplement some of these architectures in TensorFlow and achieve competitive results on the SQuAD dataset.
+SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning problem where the model receives a question and a passage and is tasked with answering the question using the passage. The answers are limited to spans of text. The training data consists of (question, paragraph, answer span) triplets. Due to the nature of the task, combining the information contained in the passage with the question posed is paramount to achieve good performance (See references for more information). Recurrent neural networks that combine the information from the question and paragraph using coattention mechanisms such as [1] and [2] have achieved the best results in the task so far.
 
 ## Networks
 
+### Dynamic Coattention Network Plus (DCN+)
+DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the Transformer Network. The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of mixed objective the implementation uses cross entropy as in vanilla DCN.
+
+For the implementation see `dcn_plus.py`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the application specific decoder are modular and can easily be used with other networks. If you want to speed up the training process, you can put together a network with DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`.
+
 ### Baseline model
-Baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
+Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder). The baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
 
 Best hyperparameters
 ```
@@ -33,18 +32,15 @@ Dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
 ```
 Increasing embedding size and state size should improve performance further.
 
-### Dynamic Coattention Network Plus (DCN+)
-The project contains a complete implementation of the DCN+ encoder. Decoder is in progress. 
+Using the DCN+ encoder with a naive decoder achieves ~0.60 Dev F1 with similar states and sizes.
 
-Encoder without sentinel with naive decoder achieves ~0.60 Dev F1 with similar states and sizes as Baseline model above.
+## Instructions
 
-Instead of mixed objective the implementation will have cross entropy.
-
-## Dependencies
+### Dependencies
 
 The project has only been tested for Python 3.6 with TensorFlow 1.4. Support for prior versions will not be added.
 
-## Instructions
+### Getting started
 
 Move under the project folder (the one containing the README.md)
 
@@ -62,7 +58,7 @@ Download punkt if needed
 $ python -m nltk.downloader punkt
 ```
 then change directory to the one containing the code (`qa_data.py` etc.) and preprocess SQuAD using
-```
+``` sh
 $ python preprocessing/squad_preprocess.py
 ```
 While the preprocessing is running you can continue with Step 3 in another terminal in the project folder. 
@@ -75,7 +71,7 @@ to download Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or
 ``` sh
 $ wget http://nlp.stanford.edu/data/glove.42B.300d.zip -P download/dwr/
 ```
-for Common Crawl 300 dimensional GLoVe word embeddings (~1.8gb) (I suggest using Wikipedia first - processing Common Crawl requires much more time)
+for Common Crawl 300 dimensional GLoVe word embeddings (~1.8gb). Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
 
 Extract the Wikipedia embeddings
 ``` sh
@@ -87,9 +83,9 @@ $ tar -xvzf download/dwr/glove.42B.300d.zip --directory download/dwr/
 ```
 4. When Step 2 and 3 are complete change directory to the one containing the code (`qa_data.py` etc.) and run
 ``` sh
-$ python qa_data.py --glove_dim EMBEDDINGS_DIMENSIONS --glove_source SOURCE
+$ python qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <SOURCE>
 ```
-replacing `EMBEDDINGS_DIMENSIONS` by the word embedding size you want (100, 200, 300) and `SOURCE` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
+replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200, 300) and `<SOURCE>` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
 
 Once complete run (Additionally, you may need to comment out the line importing `cat.py` in `train.py`.)
 ``` sh
@@ -97,11 +93,12 @@ $ python train.py
 ```
 to train the network. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder. `train.py` contains all hyperparameters for the model.
 
+### Tensorboard
 For Tensorboard, run
 ``` sh
-$ tensorboard --logdir ../checkpoints
+$ tensorboard --logdir checkpoints
 ```
-and if default settings are used you should be able to open your web browser and enter localhost:6006 to enter Tensorboard. The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
+from the project folder and navigate to `localhost:6006`. The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
 
 ## Acknowledgements
 
