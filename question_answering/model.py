@@ -1,6 +1,7 @@
 import time
 import copy
 import numpy as np
+
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 from tensorflow import variable_scope
