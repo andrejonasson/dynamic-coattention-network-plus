@@ -17,7 +17,7 @@ For the implementation see `dcn_plus.py`. An effort has been made to document ea
 ### Baseline model
 Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder). The baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
 
-Best hyperparameters
+Starting point for hyperparameters
 ```
 Steps = 15000
 Word embedding size = 100
@@ -28,7 +28,7 @@ Decay = Exponential (Staircase)
 Decay Steps = 4500
 Decay Rate = 0.5
 
-Dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
+Achieves dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
 ```
 Increasing embedding size and state size should improve performance further.
 
@@ -46,7 +46,7 @@ Move under the project folder (the one containing the README.md)
 
 1. Install the requirements (you may want to create and activate a virtualenv)
 ``` sh
-$ pip -r requirements.txt
+$ pip install -r requirements.txt
 ```
 
 2. To download squad run
@@ -57,9 +57,9 @@ Download punkt if needed
 ``` sh
 $ python -m nltk.downloader punkt
 ```
-then change directory to the one containing the code (`qa_data.py` etc.) and preprocess SQuAD using
+then preprocess SQuAD using
 ``` sh
-$ python preprocessing/squad_preprocess.py
+$ python question_answering/preprocessing/squad_preprocess.py
 ```
 While the preprocessing is running you can continue with Step 3 in another terminal in the project folder. 
 
@@ -75,11 +75,11 @@ for Common Crawl 300 dimensional GLoVe word embeddings (~1.8gb). Common Crawl re
 
 Extract the Wikipedia embeddings
 ``` sh
-$ tar -xvzf download/dwr/glove.6B.zip --directory download/dwr/
+$ tar -xzf download/dwr/glove.6B.zip --directory download/dwr/
 ```
 or the Common Crawl embeddings
 ``` sh
-$ tar -xvzf download/dwr/glove.42B.300d.zip --directory download/dwr/
+$ tar -xzf download/dwr/glove.42B.300d.zip --directory download/dwr/
 ```
 4. When Step 2 and 3 are complete change directory to the one containing the code (`qa_data.py` etc.) and run
 ``` sh
@@ -98,7 +98,7 @@ For Tensorboard, run
 ``` sh
 $ tensorboard --logdir checkpoints
 ```
-from the project folder and navigate to `localhost:6006`. The F1 on train/dev using a sample (~400 by default), gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
+from the project folder and navigate to `localhost:6006`. The F1 calculated on samples from the training and development datasets, gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
 
 ## Acknowledgements
 
