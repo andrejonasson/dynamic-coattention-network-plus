@@ -25,7 +25,10 @@ class DCNPlus:
             p_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.paragraph)
         
         with tf.variable_scope('prediction'):
-            encoding = encode(self.hparams['state_size'], q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            def cell_factory():
+                cell_type = tf.contrib.rnn.LSTMCell
+                return tf.contrib.rnn.DropoutWrapper(cell_type(num_units=self.hparams['state_size'])) #, input_keep_prob=input_keep_prob, output_keep_prob=output_keep_prob)
+            encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
             logits = decode(encoding, self.hparams['state_size'], self.hparams['pool_size'], self.hparams['max_iter'])
 
         with tf.variable_scope('loss'):

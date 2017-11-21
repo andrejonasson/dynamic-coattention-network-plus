@@ -26,13 +26,13 @@ Shape notation:
 
 import tensorflow as tf
 
-def encode(state_size, query, query_length, document, document_length):
+def encode(cell_factory, query, query_length, document, document_length):
     """ DCN+ deep residual coattention encoder.
     
     Encodes query document pairs into a document-query representations in document space.
 
     Args:  
-        state_size: Scalar integer. State size of RNN cell encoders.  
+        cell_factory: Function of zero arguments returning an RNNCell.
         query: Tensor of rank 3, shape [N, Q, R].  
         query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
         document: Tensor of rank 3, shape [N, D, R].  
@@ -42,18 +42,14 @@ def encode(state_size, query, query_length, document, document_length):
         Merged representation of query and document in document space, shape [N, D, 2H].
     """
 
-    def get_cell():
-        cell_type = tf.contrib.rnn.LSTMCell
-        return cell_type(num_units=state_size)
-
     with tf.variable_scope('initial_encoder'):
-        query_encoding, document_encoding = query_document_encoder(get_cell(), get_cell(), query, query_length, document, document_length)
+        query_encoding, document_encoding = query_document_encoder(cell_factory(), cell_factory(), query, query_length, document, document_length)
     
     with tf.variable_scope('coattention_1'):
         summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     with tf.variable_scope('summary_encoder'):
-        summary_q_encoding, summary_d_encoding = query_document_encoder(get_cell(), get_cell(), summary_q_1, query_length, summary_d_1, document_length)
+        summary_q_encoding, summary_d_encoding = query_document_encoder(cell_factory(), cell_factory(), summary_q_1, query_length, summary_d_1, document_length)
     
     with tf.variable_scope('coattention_2'):
         _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)        
@@ -70,8 +66,8 @@ def encode(state_size, query, query_length, document, document_length):
     with tf.variable_scope('final_encoder'):
         document_representation = tf.concat(document_representations, 2)
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-            cell_fw = get_cell(),
-            cell_bw = get_cell(),
+            cell_fw = cell_factory(),
+            cell_bw = cell_factory(),
             dtype = tf.float32,
             inputs = document_representation,
             sequence_length = document_length,
@@ -127,6 +123,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
 
     return query_encoding, document_encoding
 
+
 def concat_sentinel(sentinel_name, other_tensor):
     """ Left concatenates a sentinel vector along `other_tensor`'s second dimension.
 
@@ -142,6 +139,7 @@ def concat_sentinel(sentinel_name, other_tensor):
     sentinel = tf.tile(sentinel, (tf.shape(other_tensor)[0], 1, 1))
     other_tensor = tf.concat([sentinel, other_tensor], 1)
     return other_tensor
+
 
 def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
     """ Masks affinity along its third dimension with `affinity_mask_value`.
@@ -238,17 +236,18 @@ def start_and_end_encoding(encoding, answer):
     return tf.concat([encoding_start, encoding_end], axis=1)
 
 
-def decode(encoding, state_size=100, pool_size=4, max_iter=4):
+def decode(encoding, state_size=100, pool_size=4, max_iter=4, keep_prob=1.0):
     """ DCN+ Dynamic Decoder.
 
-    Dynamically builds decoder graph. 
+    Dynamically builds decoder graph that iterates over possible solutions to problem
+    until it returns same answer in two consecutive iterations or reaches `max_iter` iterations.
 
     Args:  
         encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
         state_size: Scalar integer. Size of state and highway network.  
         pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
         max_iter: Scalar integer. Maximum number of attempts for answer span start and end to settle.  
-    
+        keep_prob: Scalar float. Probability of keeping units during dropout.
     Returns:  
         A tuple containing  
             TensorArray of answer span logits for each iteration.  
@@ -273,7 +272,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
             enc_masked = tf.boolean_mask(encoding, not_settled)
             output_masked = tf.boolean_mask(output, not_settled)
             answer_masked = tf.boolean_mask(answer, not_settled)
-            new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size)
+            new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size, keep_prob)
             new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
             logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [prev_logit, new_logit])  # TODO test that correct
             return logit
@@ -284,7 +283,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
             
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
             if i == 0:
-                logit = decoder_body(encoding, output, answer, state_size, pool_size)
+                logit = decoder_body(encoding, output, answer, state_size, pool_size, keep_prob)
             else:
                 prev_logit = logits.read(i-1)
                 logit = tf.cond(
@@ -306,7 +305,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4):
     return logits
 
 
-def decoder_body(encoding, state, answer, state_size, pool_size):
+def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
     """ Decoder feedforward network.  
 
     Calculates answer span start and end logits.  
@@ -326,22 +325,22 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
 
     with tf.variable_scope('start'):
         r_input = tf.concat([state, span_encoding], axis=1)
-        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-        alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
+        alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size, keep_prob)
     
     with tf.variable_scope('end'):
         r_input = tf.concat([state, span_encoding], axis=1)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-        beta = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
+        beta = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size, keep_prob)
     
     return tf.stack([alpha, beta], axis=2)
     
 
-def highway_maxout(inputs, hidden_size, pool_size):
+def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
     """ Highway maxout network.
 
     Args:  
@@ -352,11 +351,11 @@ def highway_maxout(inputs, hidden_size, pool_size):
     Returns:  
         Tensor of rank 2, shape [N, D]. Logits.
     """
-    layer1 = maxout_layer(inputs, hidden_size, pool_size)
-    layer2 = maxout_layer(layer1, hidden_size, pool_size)
+    layer1 = maxout_layer(inputs, hidden_size, pool_size, keep_prob)
+    layer2 = maxout_layer(layer1, hidden_size, pool_size, keep_prob)
     
     highway = tf.concat([layer1, layer2], -1)
-    output = maxout_layer(highway, 1, pool_size)
+    output = maxout_layer(highway, 1, pool_size, keep_prob)
     output = tf.squeeze(output, -1)
     return output
 
@@ -365,7 +364,7 @@ def mixture_of_experts():
     pass
 
 
-def maxout_layer(inputs, outputs, pool_size):
+def maxout_layer(inputs, outputs, pool_size, keep_prob=1.0):
     """ Maxout layer
 
     Args:  
