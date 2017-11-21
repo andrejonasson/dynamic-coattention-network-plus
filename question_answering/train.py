@@ -31,7 +31,6 @@ tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients."
 tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
 
 # Model hyperparameters
-tf.app.flags.DEFINE_float("dropout", 0.15, "Fraction of units randomly dropped on non-recurrent connections.")  # Not implemented
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
@@ -40,6 +39,10 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
+tf.app.flags.DEFINE_float("dropout", 0.15, "Decoder: Fraction of units randomly kept on non-recurrent connections.")  # Not implemented
+tf.app.flags.DEFINE_float("input_keep_prob", 0.15, "Encoder: Fraction of units randomly dropped of inputs to RNN.")  # Not implemented
+tf.app.flags.DEFINE_float("output_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of outputs from RNN.")  # Not implemented
+tf.app.flags.DEFINE_float("state_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of encoder states in RNN.")  # Not implemented
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
@@ -162,7 +165,7 @@ def main(_):
     # Build model
     #model = QASystem(encode, decode, embeddings, FLAGS.__flags)
     #model = Graph(embeddings, is_training=True)
-    model = DCNPlus(embeddings, FLAGS.__flags)
+    model = DCNPlus(embeddings, FLAGS.__flags, is_training=True)
     do_train(model, train, dev, evaluate)
     # if not os.path.exists(FLAGS.log_dir):
     #     os.makedirs(FLAGS.log_dir)
