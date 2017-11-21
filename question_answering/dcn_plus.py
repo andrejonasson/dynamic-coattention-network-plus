@@ -324,9 +324,9 @@ def decoder_body(encoding, state, answer, state_size, pool_size):
     maxlen = tf.shape(encoding)[1]
     span_encoding = start_and_end_encoding(encoding, answer)
 
-    with tf.variable_scope('start'):  # TODO need reuse, although currently getting it from tf.AUTO_REUSE
+    with tf.variable_scope('start'):
         r_input = tf.concat([state, span_encoding], axis=1)
-        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # outputs  # [N, ]
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
         alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size)
@@ -347,7 +347,7 @@ def highway_maxout(inputs, hidden_size, pool_size):
     Args:  
         inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to network.  
         hidden_size: Scalar integer. Hidden units of highway maxout network.  
-        pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
+        pool_size: Scalar integer. Number of units that are max pooled in maxout layer.  
     
     Returns:  
         Tensor of rank 2, shape [N, D]. Logits.
@@ -357,7 +357,8 @@ def highway_maxout(inputs, hidden_size, pool_size):
     
     highway = tf.concat([layer1, layer2], -1)
     output = maxout_layer(highway, 1, pool_size)
-    return tf.reshape(output, (tf.shape(inputs)[0], tf.shape(inputs)[1]))  # TODO temp
+    output = tf.squeeze(output, -1)
+    return output
 
 
 def mixture_of_experts():
@@ -365,8 +366,18 @@ def mixture_of_experts():
 
 
 def maxout_layer(inputs, outputs, pool_size):
+    """ Maxout layer
+
+    Args:  
+        inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to layer.  
+        outputs: Scalar integer, number of outputs.  
+        pool_size: Scalar integer, number of units to max pool over.  
+    
+    Returns:  
+        Tensor, shape [N, D, outputs]. Result of maxout layer.
+    """
     pool = tf.layers.dense(inputs, outputs*pool_size)
-    pool = tf.reshape(pool, (-1, outputs, pool_size))  # possibly skip via num_units=outputs in next line
+    pool = tf.reshape(pool, (-1, tf.shape(inputs)[1], outputs, pool_size))
     output = tf.contrib.layers.maxout(pool, 1)
     output = tf.squeeze(output, -1)
     return output
@@ -383,8 +394,7 @@ def loss(logits, answer_span, max_iter):
 
     Returns:  
         Mean cross entropy loss across iterations and batch. Mean is used instead of sum to make loss be 
-        on same scale as other methods.
-
+        on same scale as other more traditional methods.
     """
     batch_size = tf.shape(answer_span)[0]
     logits = logits.concat()
@@ -415,8 +425,7 @@ def naive_decode(encoding):
     with tf.variable_scope('decode_start'):
         start_logit = tf.layers.dense(encoding, 1)
         start_logit = tf.squeeze(start_logit)
-    
-    # TODO condition decode_end on decode_start
+
     with tf.variable_scope('decode_end'):
         end_logit = tf.layers.dense(encoding, 1)
         end_logit = tf.squeeze(end_logit)
