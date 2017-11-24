@@ -28,30 +28,30 @@ tf.app.flags.DEFINE_boolean("staircase", True, "Whether staircase decay (use of 
 tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
-tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
+tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
 
 # Model hyperparameters
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
-tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
+tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 
 # DCN+ hyperparameters
-tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
-tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
-tf.app.flags.DEFINE_float("dropout", 0.15, "Decoder: Fraction of units randomly kept on non-recurrent connections.")  # Not implemented
 tf.app.flags.DEFINE_float("input_keep_prob", 0.15, "Encoder: Fraction of units randomly dropped of inputs to RNN.")  # Not implemented
 tf.app.flags.DEFINE_float("output_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of outputs from RNN.")  # Not implemented
 tf.app.flags.DEFINE_float("state_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of encoder states in RNN.")  # Not implemented
+tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
+tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
+tf.app.flags.DEFINE_float("keep_prob", 0.15, "Decoder: Fraction of units randomly kept on non-recurrent connections.")  # Not implemented
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
 tf.app.flags.DEFINE_integer("max_paragraph_length", 300, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")
+tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")  # Not used
 
 # Evaluation arguments
-tf.app.flags.DEFINE_integer("eval_size", 400, "Number of samples to use for evaluation.")
+tf.app.flags.DEFINE_integer("eval_size", 100, "Number of samples to use for evaluation.")
 
 # Directories etc.
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
@@ -65,7 +65,8 @@ tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embeddin
 
 FLAGS = tf.app.flags.FLAGS
 
-# TODO batch evaluation
+# TODO implement batch evaluation
+# TODO implement separate evaluation process and remove from do_train
 # TODO hyperparameter random search
 # TODO add shell
 # TODO add flag for what model should be used
@@ -74,6 +75,9 @@ FLAGS = tf.app.flags.FLAGS
 # TODO write all hyperparams to checkpoints folder, write final Dev set eval to a file that's easily inspected
 
 def exact_match(prediction, truth):
+    pass
+
+def do_eval(model, train, dev, eval_metric):
     pass
 
 def do_train(model, train, dev, eval_metric):

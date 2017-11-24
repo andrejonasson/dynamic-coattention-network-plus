@@ -240,7 +240,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4, keep_prob=1.0):
     """ DCN+ Dynamic Decoder.
 
     Dynamically builds decoder graph that iterates over possible solutions to problem
-    until it returns same answer in two consecutive iterations or reaches `max_iter` iterations.
+    until it returns same answer in two consecutive iterations or reaches `max_iter` iterations.  
 
     Args:  
         encoding: Tensor of rank 3, shape [N, D, xH]. Query-document encoding.  
@@ -279,7 +279,7 @@ def decode(encoding, state_size=100, pool_size=4, max_iter=4, keep_prob=1.0):
         
         for i in range(max_iter):
             if i > 1:
-                tf.summary.scalar(f'not_settled_iter_{i}', tf.reduce_sum(tf.cast(not_settled, tf.float32)))
+                tf.summary.scalar(f'not_settled_iter_{i+1}', tf.reduce_sum(tf.cast(not_settled, tf.float32)))
             
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
             if i == 0:
@@ -375,6 +375,8 @@ def maxout_layer(inputs, outputs, pool_size, keep_prob=1.0):
     Returns:  
         Tensor, shape [N, D, outputs]. Result of maxout layer.
     """
+    
+    inputs = tf.nn.dropout(inputs, keep_prob)
     pool = tf.layers.dense(inputs, outputs*pool_size)
     pool = tf.reshape(pool, (-1, tf.shape(inputs)[1], outputs, pool_size))
     output = tf.contrib.layers.maxout(pool, 1)
@@ -386,7 +388,7 @@ def loss(logits, answer_span, max_iter):
     """ Calulates cumulative loss over the iterations
 
     Args:  
-        logits: TensorArray of Tensors of rank 2 [N, D, 2] of size max_iter. Contains logits of start 
+        logits: TensorArray of Tensors of rank 3 [N, D, 2] of size max_iter. Contains logits of start 
         and end of answer span  
         answer_span: Integer placeholder containing indices of true answer spans [N, 2].
         max_iter: Scalar integer, Maximum number of iterations the decoder is run.
