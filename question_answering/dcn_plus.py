@@ -316,6 +316,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         answer: Tensor of rank 2, shape [N, 2]. Current iteration's answer.  
         state_size: Scalar integer. Hidden units of highway maxout network.  
         pool_size: Scalar integer. Number of units that are max pooled in maxout network.  
+        keep_prob: Scalar float. Input dropout keep probability for maxout layers.
     
     Returns:  
         Tensor of rank 3, shape [N, D, 2]. Answer span logits for answer start and end.
@@ -347,7 +348,8 @@ def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
         inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to network.  
         hidden_size: Scalar integer. Hidden units of highway maxout network.  
         pool_size: Scalar integer. Number of units that are max pooled in maxout layer.  
-    
+        keep_prob: Scalar float. Input dropout keep probability for maxout layers.  
+
     Returns:  
         Tensor of rank 2, shape [N, D]. Logits.
     """
@@ -371,6 +373,7 @@ def maxout_layer(inputs, outputs, pool_size, keep_prob=1.0):
         inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to layer.  
         outputs: Scalar integer, number of outputs.  
         pool_size: Scalar integer, number of units to max pool over.  
+        keep_prob: Scalar float, input dropout keep probability.  
     
     Returns:  
         Tensor, shape [N, D, outputs]. Result of maxout layer.

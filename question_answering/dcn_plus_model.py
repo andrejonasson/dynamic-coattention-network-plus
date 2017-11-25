@@ -5,7 +5,7 @@ from dcn_plus import encode, decode, loss
 
 
 def maybe_dropout(keep_prob, is_training=False):
-    return tf.cond(tf.convert_to_tensor(is_training), keep_prob, 1.0)
+    return tf.cond(tf.convert_to_tensor(is_training), lambda: keep_prob, lambda: 1.0)
 
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 

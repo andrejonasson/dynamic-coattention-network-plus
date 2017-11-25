@@ -37,12 +37,12 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 
 # DCN+ hyperparameters
-tf.app.flags.DEFINE_float("input_keep_prob", 0.15, "Encoder: Fraction of units randomly dropped of inputs to RNN.")  # Not implemented
-tf.app.flags.DEFINE_float("output_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of outputs from RNN.")  # Not implemented
-tf.app.flags.DEFINE_float("state_keep_prob", 0.15, "Encoder: Fraction of units randomly kept of encoder states in RNN.")  # Not implemented
+tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly dropped of inputs to RNN.")
+tf.app.flags.DEFINE_float("output_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of outputs from RNN.")
+tf.app.flags.DEFINE_float("state_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
-tf.app.flags.DEFINE_float("keep_prob", 0.15, "Decoder: Fraction of units randomly kept on non-recurrent connections.")  # Not implemented
+tf.app.flags.DEFINE_float("keep_prob", 0.85, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
