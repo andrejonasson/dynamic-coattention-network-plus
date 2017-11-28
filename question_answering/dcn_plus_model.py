@@ -84,7 +84,6 @@ class DCNPlus:
             self.paragraph_length: paragraph_length,
         }
 
-        # TODO Why does it require answer_span placeholder when answer_span is not on the path to model.answer?  # TODO try removing NanTensor Hook
         if answer_span is not None:
             feed_dict[self.answer_span] = answer_span
 
