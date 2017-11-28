@@ -60,8 +60,6 @@ tf.app.flags.DEFINE_integer("eval_size", 100, "Number of samples to use for eval
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
 tf.app.flags.DEFINE_string("data_dir", os.path.join("..", "data", "squad"), "SQuAD directory (default ../data/squad)") 
 tf.app.flags.DEFINE_string("train_dir", os.path.join("..", "checkpoints"), "Training directory to save the model parameters (default: ../checkpoints).")
-tf.app.flags.DEFINE_string("load_train_dir", "", "Training directory to load model parameters from to resume training (default: {train_dir}).")
-tf.app.flags.DEFINE_string("log_dir", os.path.join("..", "log"), "Path to store log and flag files (default: ../log)")
 tf.app.flags.DEFINE_integer("print_every", 50, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("vocab_path", os.path.join("..", "data", "squad", "vocab.dat"), "Path to vocab file (default: ../data/squad/vocab.dat)")
 tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embedding (default: ../data/squad/glove.trimmed.{embedding_size}.npz)")
@@ -71,10 +69,9 @@ FLAGS = tf.app.flags.FLAGS
 # TODO implement batch evaluation
 # TODO hyperparameter random search
 # TODO add shell
-# TODO add flag for what model should be used
 # TODO implement early stopping, or reload
 # TODO implement EM
-# TODO write all hyperparams to checkpoints folder, write final Dev set eval to a file that's easily inspected
+# TODO Write final Dev set eval to a file that's easily inspected
 
 def exact_match(prediction, truth):
     pass
@@ -175,24 +172,14 @@ def main(_):
     
     # Run mode
     if FLAGS.mode == 'train':
+        with open(os.path.join(FLAGS.log_dir, "flags.json"), 'w') as f:
+            json.dump(FLAGS.__flags, f)
         do_train(model, train, dev, evaluate)
     elif FLAGS.mode == 'eval':
         do_eval(model, train, dev, evaluate)
     else:
         raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
-    
-    # if not os.path.exists(FLAGS.log_dir):
-    #     os.makedirs(FLAGS.log_dir)
-    # file_handler = logging.FileHandler(pjoin(FLAGS.log_dir, "log.txt"))
-    # logging.getLogger().addHandler(file_handler)
 
-    # print(vars(FLAGS))
-    # with open(os.path.join(FLAGS.log_dir, "flags.json"), 'w') as fout:
-    #     json.dump(FLAGS.__flags, fout)
-        #save_train_dir = get_normalized_train_dir(FLAGS.train_dir)
-        #qa.train(sess, dataset, save_train_dir)
-
-        #qa.evaluate_answer(sess, dataset, vocab, FLAGS.evaluate, log=True)
 
 def test_overfit():
     """
@@ -222,7 +209,6 @@ def test_overfit():
     steps_per_epoch = 10
     train.question, train.paragraph, train.question_length, train.paragraph_length, train.answer = train[:test_size]
     with tf.Session() as sess:
-        load_train_dir = get_normalized_train_dir(FLAGS.load_train_dir or FLAGS.train_dir)
         sess.run(tf.global_variables_initializer())
         for epoch in range(epochs):
             epoch_start = timer()
