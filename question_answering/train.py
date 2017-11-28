@@ -17,6 +17,8 @@ from dataset import SquadDataset
 
 logging.basicConfig(level=logging.INFO)
 
+tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train or eval')
+
 # Training hyperparameters
 tf.app.flags.DEFINE_integer("max_steps", 15000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
@@ -31,6 +33,7 @@ tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients."
 tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
 
 # Model hyperparameters
+tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
@@ -66,7 +69,6 @@ tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embeddin
 FLAGS = tf.app.flags.FLAGS
 
 # TODO implement batch evaluation
-# TODO implement separate evaluation process and remove from do_train
 # TODO hyperparameter random search
 # TODO add shell
 # TODO add flag for what model should be used
@@ -154,10 +156,26 @@ def main(_):
     # vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
     # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
     
+    is_training = FLAGS.mode == 'train'
+    
     # Build model
-    #model = Graph(embeddings, is_training=True)
-    model = DCNPlus(embeddings, FLAGS.__flags, is_training=True)
-    do_train(model, train, dev, evaluate)
+    if FLAGS.model == 'dcnplus':
+        model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
+    elif FLAGS.model == 'baseline':
+        model = Baseline(embeddings, FLAGS.__flags)
+    elif FLAGS.model == 'cat':
+        model = Graph(embeddings, is_training=is_training)
+    else:
+        raise ValueError(f'{FLAGS.model} is not a supported model')
+    
+    # Run mode
+    if FLAGS.mode == 'train':
+        do_train(model, train, dev, evaluate)
+    elif FLAGS.mode == 'eval':
+        do_eval(model, train, dev, evaluate)
+    else:
+        raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
+    
     # if not os.path.exists(FLAGS.log_dir):
     #     os.makedirs(FLAGS.log_dir)
     # file_handler = logging.FileHandler(pjoin(FLAGS.log_dir, "log.txt"))
