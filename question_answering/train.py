@@ -37,7 +37,7 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 
 # DCN+ hyperparameters
-tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly dropped of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -77,8 +77,23 @@ FLAGS = tf.app.flags.FLAGS
 def exact_match(prediction, truth):
     pass
 
-def do_eval(model, train, dev, eval_metric):
-    pass
+def do_eval(model, train, dev, eval_metric, checkpoint_dir=None):
+    checkpoint_dir = os.path.join(FLAGS.train_dir, checkpoint_dir)
+
+    # Parameter space size information
+    num_parameters = sum(v.get_shape().num_elements() for v in tf.trainable_variables())
+    logging.info('Number of parameters %d' % num_parameters)
+    for v in tf.trainable_variables():
+        logging.info(f'Variable {v} has {v.get_shape().num_elements()} entries')
+
+    # Training session
+    with tf.Session() as session:
+        # Train/Dev Evaluation
+        start_evaluate = timer()
+        train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
+        dev_f1 = eval_metric(session, model, dev, size=FLAGS.eval_size)
+        logging.info(f'Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
+        logging.info(f'Time to evaluate: {timer() - start_evaluate:.1f} sec')
 
 def do_train(model, train, dev, eval_metric):
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
