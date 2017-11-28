@@ -17,6 +17,7 @@ from dataset import SquadDataset
 
 logging.basicConfig(level=logging.INFO)
 
+# Mode
 tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train or eval')
 
 # Training hyperparameters
@@ -105,7 +106,7 @@ def do_train(model, train, dev, eval_metric):
     hooks = [
         tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
         tf.train.NanTensorHook(model.loss),
-        tf.train.CheckpointSaverHook(os.path.join(checkpoint_dir, 'eval'), save_steps=1000)  # additional saver for evaluation
+        tf.train.CheckpointSaverHook(os.path.join(checkpoint_dir, 'eval'), save_steps=1000)
     ]
 
     # Parameter space size information
@@ -172,8 +173,8 @@ def main(_):
     
     # Run mode
     if FLAGS.mode == 'train':
-        with open(os.path.join(FLAGS.log_dir, "flags.json"), 'w') as f:
-            json.dump(FLAGS.__flags, f)
+        with open(os.path.join(FLAGS.train_dir, "flags.json"), 'w') as f:
+            json.dump(FLAGS.__flags, f, indent=4)
         do_train(model, train, dev, evaluate)
     elif FLAGS.mode == 'eval':
         do_eval(model, train, dev, evaluate)
