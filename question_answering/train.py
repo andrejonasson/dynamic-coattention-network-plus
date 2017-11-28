@@ -78,7 +78,7 @@ def exact_match(prediction, truth):
     pass
 
 def do_eval(model, train, dev, eval_metric, checkpoint_dir=None):
-    checkpoint_dir = os.path.join(FLAGS.train_dir, checkpoint_dir)
+    checkpoint_dir = os.path.join(checkpoint_dir, 'eval')
 
     # Parameter space size information
     num_parameters = sum(v.get_shape().num_elements() for v in tf.trainable_variables())
@@ -105,6 +105,7 @@ def do_train(model, train, dev, eval_metric):
     hooks = [
         tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
         tf.train.NanTensorHook(model.loss),
+        tf.train.CheckpointSaverHook(os.path.join(checkpoint_dir, 'eval'), save_steps=1000)  # additional saver for evaluation
     ]
 
     # Parameter space size information
@@ -113,7 +114,7 @@ def do_train(model, train, dev, eval_metric):
     for v in tf.trainable_variables():
         logging.info(f'Variable {v} has {v.get_shape().num_elements()} entries')
 
-    losses = [] 
+    losses = []
 
     # Training session  
     with tf.train.MonitoredTrainingSession(hooks=hooks,
@@ -182,7 +183,6 @@ def main(_):
     # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
     
     # Build model
-    #model = QASystem(encode, decode, embeddings, FLAGS.__flags)
     #model = Graph(embeddings, is_training=True)
     model = DCNPlus(embeddings, FLAGS.__flags, is_training=True)
     do_train(model, train, dev, evaluate)
