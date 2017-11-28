@@ -97,10 +97,6 @@ def do_eval(model, train, dev, eval_metric, checkpoint_dir=None):
 
 def do_train(model, train, dev, eval_metric):
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
-
-    # Two writers needed to enable plotting two lines in one plot
-    dev_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'dev'))
-    train_summary_writer = tf.summary.FileWriter(os.path.join(checkpoint_dir, 'train'))
     
     hooks = [
         tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
@@ -136,30 +132,6 @@ def do_train(model, train, dev, eval_metric):
                 mean_loss = sum(losses)/len(losses)
                 losses = []
                 print(f'Step {step}, loss {mean_loss:.2f}')
-            
-            # Train/Dev Evaluation
-            if False and eval_metric is not None and step != 0 and (step == 200 or step % 500 == 0):
-                start_evaluate = timer()
-                train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
-                train_summary_writer.add_summary(
-                    tf.Summary(value=[tf.Summary.Value(tag='F1', simple_value=train_f1)]),
-                    step
-                )
-                dev_f1 = eval_metric(session, model, dev, size=FLAGS.eval_size)
-                dev_summary_writer.add_summary(
-                    tf.Summary(value=[tf.Summary.Value(tag='F1', simple_value=dev_f1)]),
-                    step
-                )
-                logging.info(f'Step {step}, Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
-                logging.info(f'Step {step}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
-            
-            # Final evaluation on full development set
-            if step != 0 and (step == FLAGS.max_steps-1): #step % 7000 == 0 or
-                # TODO need to change Dev to full ~(700 paragraph length, 100 question length)
-                start_evaluate = timer()
-                dev_f1 = evaluate(session, model, dev, size=dev.length)
-                logging.info(f'Train/Dev F1: /{dev_f1:.3f}')  #{train_f1:.3f}
-                logging.info(f'Time to evaluate full train/dev set: {timer() - start_evaluate:.1f} sec')
 
 def main(_):
     # Load data
