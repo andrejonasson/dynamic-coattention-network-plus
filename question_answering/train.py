@@ -74,8 +74,10 @@ FLAGS = tf.app.flags.FLAGS
 # TODO implement EM
 # TODO Write final Dev set eval to a file that's easily inspected
 
+
 def exact_match(prediction, truth):
     pass
+
 
 def do_eval(model, train, dev, eval_metric):
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
@@ -100,7 +102,8 @@ def do_eval(model, train, dev, eval_metric):
         logging.info(f'Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
         logging.info(f'Time to evaluate: {timer() - start_evaluate:.1f} sec')
 
-def do_train(model, train, dev, eval_metric):
+
+def do_train(model, train):
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     
     hooks = [
@@ -136,50 +139,6 @@ def do_train(model, train, dev, eval_metric):
                 mean_loss = sum(losses)/len(losses)
                 losses = []
                 print(f'Step {step}, loss {mean_loss:.2f}')
-
-def main(_):
-    # Load data
-    train = SquadDataset(*get_data_paths(FLAGS.data_dir, name='train'), 
-                         max_question_length=FLAGS.max_question_length, 
-                         max_paragraph_length=FLAGS.max_paragraph_length)
-    dev = SquadDataset(*get_data_paths(FLAGS.data_dir, name='val'), 
-                         max_question_length=FLAGS.max_question_length, 
-                         max_paragraph_length=FLAGS.max_paragraph_length) # probably not cut
-    # TODO convert to TF Dataset API
-    # train = tf.convert_to_tensor(train)
-    # dev = tf.convert_to_tensor(dev)
-    # tf.contrib.data.Dataset()
-
-    logging.info(f'Train/Dev size {train.length}/{dev.length}')
-
-    # Load embeddings
-    embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
-    embeddings = np.load(embed_path)['glove']  # 115373
-    # vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
-    # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
-    
-    is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
-    
-    # Build model
-    if FLAGS.model == 'dcnplus':
-        model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
-    elif FLAGS.model == 'baseline':
-        model = Baseline(embeddings, FLAGS.__flags)
-    elif FLAGS.model == 'cat':
-        model = Graph(embeddings, is_training=is_training)
-    else:
-        raise ValueError(f'{FLAGS.model} is not a supported model')
-    
-    # Run mode
-    if FLAGS.mode == 'train':
-        save_flags()
-        do_train(model, train, dev, evaluate)
-    elif FLAGS.mode == 'eval':
-        do_eval(model, train, dev, evaluate)
-    elif FLAGS.mode == 'overfit':
-        test_overfit(model, train, evaluate)
-    else:
-        raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
 
 
 def save_flags():
@@ -225,6 +184,51 @@ def test_overfit(model, train, evaluate):
             global_step = tf.train.get_global_step().eval()
             print(f'Epoch took {timer() - epoch_start:.2f} s (step: {global_step})')
 
+
+def main(_):
+    # Load data
+    train = SquadDataset(*get_data_paths(FLAGS.data_dir, name='train'), 
+                         max_question_length=FLAGS.max_question_length, 
+                         max_paragraph_length=FLAGS.max_paragraph_length)
+    dev = SquadDataset(*get_data_paths(FLAGS.data_dir, name='val'), 
+                         max_question_length=FLAGS.max_question_length, 
+                         max_paragraph_length=FLAGS.max_paragraph_length) # probably not cut
+    # TODO convert to TF Dataset API
+    # train = tf.convert_to_tensor(train)
+    # dev = tf.convert_to_tensor(dev)
+    # tf.contrib.data.Dataset()
+
+    logging.info(f'Train/Dev size {train.length}/{dev.length}')
+
+    # Load embeddings
+    embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
+    embeddings = np.load(embed_path)['glove']  # 115373
+    # vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
+    # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
+    
+    is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
+    
+    # Build model
+    if FLAGS.model == 'dcnplus':
+        model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
+    elif FLAGS.model == 'baseline':
+        model = Baseline(embeddings, FLAGS.__flags)
+    elif FLAGS.model == 'cat':
+        model = Graph(embeddings, is_training=is_training)
+    else:
+        raise ValueError(f'{FLAGS.model} is not a supported model')
+    
+    # Run mode
+    if FLAGS.mode == 'train':
+        save_flags()
+        do_train(model, train)
+    elif FLAGS.mode == 'eval':
+        do_eval(model, train, dev, evaluate)
+    elif FLAGS.mode == 'overfit':
+        test_overfit(model, train, evaluate)
+    else:
+        raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
+
+
 if __name__ == "__main__":
-    #test_overfit()
     tf.app.run()
