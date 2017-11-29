@@ -78,7 +78,7 @@ def exact_match(prediction, truth):
     pass
 
 def do_eval(model, train, dev, eval_metric):
-    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name, 'eval')
+    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
 
     # Parameter space size information
     num_parameters = sum(v.get_shape().num_elements() for v in tf.trainable_variables())
@@ -88,7 +88,7 @@ def do_eval(model, train, dev, eval_metric):
     # TODO test if answer_span placeholder is still necessary without monitoredtrainingsesion
 
     saver = tf.train.Saver()
-    # TODO add loop to run over all checkpoints in eval folder, 
+    # TODO add loop to run over all checkpoints in folder, 
     # Training session
     with tf.Session() as session:
         saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
