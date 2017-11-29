@@ -41,7 +41,7 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 
 # DCN+ hyperparameters
-tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.975, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_float("keep_prob", 0.85, "Decoder: Fraction of units randoml
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
-tf.app.flags.DEFINE_integer("max_paragraph_length", 300, "Maximum paragraph length and the output size of your model.")
+tf.app.flags.DEFINE_integer("max_paragraph_length", 400, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
 tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")  # Not used
 
@@ -105,8 +105,7 @@ def do_train(model, train, dev, eval_metric):
     
     hooks = [
         tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
-        tf.train.NanTensorHook(model.loss),
-        tf.train.CheckpointSaverHook(os.path.join(checkpoint_dir, 'eval'), save_steps=1000)
+        tf.train.NanTensorHook(model.loss)
     ]
 
     # Parameter space size information
@@ -159,7 +158,7 @@ def main(_):
     # vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
     # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
     
-    is_training = FLAGS.mode == 'train'
+    is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
     
     # Build model
     if FLAGS.model == 'dcnplus':
@@ -173,54 +172,56 @@ def main(_):
     
     # Run mode
     if FLAGS.mode == 'train':
-        with open(os.path.join(FLAGS.train_dir, "flags.json"), 'w') as f:
-            json.dump(FLAGS.__flags, f, indent=4)
+        save_flags()
         do_train(model, train, dev, evaluate)
     elif FLAGS.mode == 'eval':
         do_eval(model, train, dev, evaluate)
+    elif FLAGS.mode == 'overfit':
+        test_overfit(model, train, evaluate)
     else:
         raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
 
 
-def test_overfit():
+def save_flags():
+    model_path = os.path.join(FLAGS.train_dir, FLAGS.model_name)
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
+        
+    json_path = os.path.join(FLAGS.train_dir, FLAGS.model_name, "flags.json")
+    if not os.path.exists(json_path):
+        with open(json_path, 'w') as f:
+            json.dump(FLAGS.__flags, f, indent=4)
+
+
+def test_overfit(model, train, evaluate):
     """
     Tests that model can overfit on small datasets.
     """
-    data_hparams = {
-        'max_paragraph_length': 300,
-        'max_question_length': 25
-    }
-    train = SquadDataset(*get_data_paths(FLAGS.data_dir, name='train'), **data_hparams)
-    dev = SquadDataset(*get_data_paths(FLAGS.data_dir, name='val'), **data_hparams)  # probably not cut
-
-    embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
-    embeddings = np.load(embed_path)['glove']  # 115373
-
-    test_hparams = {
-        'learning_rate': 0.01,
-        'keep_prob': 1.0,
-        'trainable_embeddings': False,
-        'clip_gradients': True,
-        'max_gradient_norm': 5.0
-    }
-    model = Baseline(embeddings, test_hparams)
-    
     epochs = 100
     test_size = 32
     steps_per_epoch = 10
     train.question, train.paragraph, train.question_length, train.paragraph_length, train.answer = train[:test_size]
-    with tf.Session() as sess:
-        sess.run(tf.global_variables_initializer())
+    with tf.Session() as session:
+        session.run(tf.global_variables_initializer())
         for epoch in range(epochs):
             epoch_start = timer()
             for step in range(steps_per_epoch):
-                loss, _ = model.training_step(sess, *train[:test_size])
+                feed_dict = model.fill_feed_dict(*train[:test_size])
+                fetch_dict = {
+                    'step': tf.train.get_global_step(),
+                    'loss': model.loss,
+                    'train': model.train
+                }
+                result = session.run(fetch_dict, feed_dict)
+                loss = result['loss']
+
                 if (step == 0 and epoch == 0):
                     print(f'Entropy - Result: {loss:.2f}, Expected (approx.): {2*np.log(FLAGS.max_paragraph_length):.2f}')
                 if step == steps_per_epoch-1:
-                    print(f'Cross entropy: {loss}')
-                    train.length = 32
-                    print(evaluate(sess, model, train, size=test_size))
+                    print(f'Cross entropy: {loss:.2f}')
+                    train.length = test_size
+                    f1 = evaluate(session, model, train, size=test_size)
+                    print(f'F1: {f1:.2f}')
             global_step = tf.train.get_global_step().eval()
             print(f'Epoch took {timer() - epoch_start:.2f} s (step: {global_step})')
 
