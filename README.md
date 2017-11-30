@@ -101,7 +101,10 @@ For Tensorboard, run
 ``` sh
 $ tensorboard --logdir checkpoints
 ```
-from the project folder and navigate to `localhost:6006`. The F1 calculated on samples from the training and development datasets, gradient norm, learning rate and should be present among other metrics. The computational graph can also be viewed.
+from the project folder and navigate to `localhost:6006`. The gradient norm and learning rate should be present among other metrics. The computational graph can also be viewed.
+
+### Interactive Shell
+To see a trained model in action, load your model in mode `shell` and ask it questions about passages.
 
 ## Acknowledgements
 
