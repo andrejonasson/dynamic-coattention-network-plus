@@ -102,11 +102,11 @@ def decode(encoding):
     
     with tf.variable_scope('decode_start'):
         start_logit = tf.layers.dense(encoding, 1)
-        start_logit = tf.squeeze(start_logit)
+        start_logit = tf.squeeze(start_logit, axis=-1)
     
     # TODO condition decode_end on decode_start
     with tf.variable_scope('decode_end'):
         end_logit = tf.layers.dense(encoding, 1)
-        end_logit = tf.squeeze(end_logit)
+        end_logit = tf.squeeze(end_logit, axis=-1)
 
     return start_logit, end_logit

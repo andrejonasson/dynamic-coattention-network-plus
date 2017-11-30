@@ -1,6 +1,7 @@
 import os
 import json
 import logging
+import itertools
 from datetime import datetime
 from timeit import default_timer as timer
 from os.path import join as pjoin
@@ -90,44 +91,54 @@ def do_shell(model, dev):
     # TODO no logs
     saver = tf.train.Saver()
     # TODO add loop to run over all checkpoints in folder, 
-    # Training session
     with tf.Session() as session:
-        # if False:  # load_meta
-        #     last_meta = next(reversed([f for f in os.listdir(checkpoint_dir) if '.meta' in f]))
-        #     saver = tf.train.import_meta_graph(os.path.join(last_meta))
-        #saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
-        questions, paragraphs, question_lengths, paragraph_lengths, answers = dev.get_batch(1)
-        paragraph = reverse_indices(paragraphs[0], rev_vocab)
-        
-        print(paragraph, end='\n\n')
-        question_input = input('What would you like to ask? ')
-        if question_input:
-            question = [vocab.get(word, UNK_ID) for word in tokenize(question_input)]
-            question, question_length = pad_sequence(question, FLAGS.max_question_length)
-            questions, question_lengths = [question], [question_length]
-        else:
-            question_words = reverse_indices(questions[0], rev_vocab)
-            print(question_words)
-        
-        #feed_dict = model.fill_feed_dict(questions, paragraphs, question_lengths, paragraph_lengths)
-        
-        # if False: #load_meta
-        #     start, end = session.run(['prediction/answer:0', 'prediction/answer:1'], feed_dict)
-        #     start, end = start[0], end[0]
-        # else:
-        #     start, end = session.run(model.answer, feed_dict)
-        #     start, end = start[0], end[0]
-        
-        start, end = 1, 5  # test
+        if False:  # load_meta
+            last_meta = next(reversed([f for f in os.listdir(checkpoint_dir) if '.meta' in f]))
+            saver = tf.train.import_meta_graph(os.path.join(last_meta))
+        saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
+        print('HINT: Input as question "next" for next paragraph')
+        while True:
+            questions, paragraphs, question_lengths, paragraph_lengths, answers = dev.get_batch(1)
+            for i in itertools.count():
+                question_input = None
+                paragraph = reverse_indices(paragraphs[0], rev_vocab)
+                if not i:
+                    print('\n')
+                    print(paragraph, end='\n\n')
+                
+                question_input = input('QUESTION: ')
 
-        answer_idxs = paragraphs[0][start:end+1]
-        answer_words = ''.join(reverse_indices(answer_idxs, rev_vocab))
-        print(f'COMPUTER: {answer_words}')
-        if not question_input:
-            start, end = answers[0]
-            correct_answer_idxs = paragraphs[0][start:end+1]
-            correct_answer = ''.join(reverse_indices(correct_answer_idxs, rev_vocab))
-            print(f'HUMAN: {correct_answer}')
+                # Type a question, write next for the next paragraph or blank for another human's question
+                if question_input == 'next':
+                    break
+                elif question_input:
+                    question = [vocab.get(word, UNK_ID) for word in tokenize(question_input)]
+                    question, question_length = pad_sequence(question, FLAGS.max_question_length)
+                    questions, question_lengths = [question], [question_length]
+                else:
+                    question_words = reverse_indices(questions[0], rev_vocab)
+                    print(question_words)
+                
+                feed_dict = model.fill_feed_dict(questions, paragraphs, question_lengths, paragraph_lengths)
+                
+                if False: #load_meta
+                    start, end = session.run(['prediction/answer_start:0', 'prediction/answer_end:0'], feed_dict)
+                    start, end = start[0], end[0]
+                else:
+                    start, end = session.run(model.answer, feed_dict)
+                    start, end = start[0], end[0]
+
+                answer_idxs = paragraphs[0][start:end+1]
+                answer_words = ''.join(reverse_indices(answer_idxs, rev_vocab))
+                print(f'COMPUTER: {answer_words}')
+
+                if not question_input:
+                    start, end = answers[0]
+                    correct_answer_idxs = paragraphs[0][start:end+1]
+                    correct_answer = ''.join(reverse_indices(correct_answer_idxs, rev_vocab))
+                    print(f'HUMAN: {correct_answer}')
+                
+                print()
 
 
 def do_eval(model, train, dev, eval_metric):
