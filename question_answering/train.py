@@ -98,9 +98,8 @@ def do_shell(model, dev):
         saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
         print('HINT: Input as question "next" for next paragraph')
         while True:
-            questions, paragraphs, question_lengths, paragraph_lengths, answers = dev.get_batch(1)
+            original_question, paragraphs, question_lengths, paragraph_lengths, answers = dev.get_batch(1)
             for i in itertools.count():
-                question_input = None
                 paragraph = reverse_indices(paragraphs[0], rev_vocab)
                 if not i:
                     print('\n')
@@ -116,7 +115,8 @@ def do_shell(model, dev):
                     question, question_length = pad_sequence(question, FLAGS.max_question_length)
                     questions, question_lengths = [question], [question_length]
                 else:
-                    question_words = reverse_indices(questions[0], rev_vocab)
+                    question_words = reverse_indices(original_question[0], rev_vocab)
+                    questions = original_question
                     print(question_words)
                 
                 feed_dict = model.fill_feed_dict(questions, paragraphs, question_lengths, paragraph_lengths)
