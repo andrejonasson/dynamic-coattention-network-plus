@@ -9,11 +9,13 @@ from collections import Counter
 import tensorflow as tf
 import numpy as np
 
+from preprocessing.squad_preprocess import tokenize
 from utils import initialize_vocab, get_normalized_train_dir, evaluate, get_data_paths
+from qa_data import UNK_ID, PAD_ID
 from cat import Graph
 from baseline_model import Baseline
 from dcn_plus_model import DCNPlus
-from dataset import SquadDataset
+from dataset import SquadDataset, pad_sequence
 
 logging.basicConfig(level=logging.INFO)
 
@@ -52,7 +54,6 @@ tf.app.flags.DEFINE_float("keep_prob", 0.85, "Decoder: Fraction of units randoml
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
 tf.app.flags.DEFINE_integer("max_paragraph_length", 400, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
-tf.app.flags.DEFINE_integer("epochs", 10, "Number of epochs to train.")  # Not used
 
 # Evaluation arguments
 tf.app.flags.DEFINE_integer("eval_size", 100, "Number of samples to use for evaluation.")
@@ -70,13 +71,63 @@ FLAGS = tf.app.flags.FLAGS
 # TODO implement batch evaluation
 # TODO hyperparameter random search
 # TODO add shell
-# TODO implement early stopping, or reload
+# TODO implement early stopping
 # TODO implement EM
 # TODO Write final Dev set eval to a file that's easily inspected
 
 
 def exact_match(prediction, truth):
     pass
+
+def reverse_indices(indices, rev_vocab):
+    return ' '.join([rev_vocab[idx] for idx in indices if idx != PAD_ID])
+
+def do_shell(model, dev):
+    # what is is_training if import_meta_graph
+    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
+    vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
+    vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
+    # TODO no logs
+    saver = tf.train.Saver()
+    # TODO add loop to run over all checkpoints in folder, 
+    # Training session
+    with tf.Session() as session:
+        # if False:  # load_meta
+        #     last_meta = next(reversed([f for f in os.listdir(checkpoint_dir) if '.meta' in f]))
+        #     saver = tf.train.import_meta_graph(os.path.join(last_meta))
+        #saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
+        questions, paragraphs, question_lengths, paragraph_lengths, answers = dev.get_batch(1)
+        paragraph = reverse_indices(paragraphs[0], rev_vocab)
+        
+        print(paragraph, end='\n\n')
+        question_input = input('What would you like to ask? ')
+        if question_input:
+            question = [vocab.get(word, UNK_ID) for word in tokenize(question_input)]
+            question, question_length = pad_sequence(question, FLAGS.max_question_length)
+            questions, question_lengths = [question], [question_length]
+        else:
+            question_words = reverse_indices(questions[0], rev_vocab)
+            print(question_words)
+        
+        #feed_dict = model.fill_feed_dict(questions, paragraphs, question_lengths, paragraph_lengths)
+        
+        # if False: #load_meta
+        #     start, end = session.run(['prediction/answer:0', 'prediction/answer:1'], feed_dict)
+        #     start, end = start[0], end[0]
+        # else:
+        #     start, end = session.run(model.answer, feed_dict)
+        #     start, end = start[0], end[0]
+        
+        start, end = 1, 5  # test
+
+        answer_idxs = paragraphs[0][start:end+1]
+        answer_words = ''.join(reverse_indices(answer_idxs, rev_vocab))
+        print(f'COMPUTER: {answer_words}')
+        if not question_input:
+            start, end = answers[0]
+            correct_answer_idxs = paragraphs[0][start:end+1]
+            correct_answer = ''.join(reverse_indices(correct_answer_idxs, rev_vocab))
+            print(f'HUMAN: {correct_answer}')
 
 
 def do_eval(model, train, dev, eval_metric):
@@ -198,13 +249,11 @@ def main(_):
     # dev = tf.convert_to_tensor(dev)
     # tf.contrib.data.Dataset()
 
-    logging.info(f'Train/Dev size {train.length}/{dev.length}')
+    # logging.info(f'Train/Dev size {train.length}/{dev.length}')
 
     # Load embeddings
     embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
     embeddings = np.load(embed_path)['glove']  # 115373
-    # vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
-    # vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
     
     is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
     
@@ -226,6 +275,8 @@ def main(_):
         do_eval(model, train, dev, evaluate)
     elif FLAGS.mode == 'overfit':
         test_overfit(model, train, evaluate)
+    elif FLAGS.mode == 'shell':
+        do_shell(model, dev)
     else:
         raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
 

@@ -42,17 +42,18 @@ class DCNPlus:
             
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
             logits = decode(encoding, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
+            last_iter_logit = logits.read(hparams['max_iter']-1)
+            start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
+            self.answer = (tf.argmax(start_logit, axis=1, name='answer_start'), tf.argmax(end_logit, axis=1, name='answer_end'))
 
         with tf.variable_scope('loss'):
             self.loss = loss(logits, self.answer_span, max_iter=hparams['max_iter'])
 
-        with tf.variable_scope('last_iter_results'):
-            last_iter_logit = logits.read(hparams['max_iter']-1)
-            start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
+        with tf.variable_scope('last_iter_loss'):
+            # Solely for diagnostics purposes
             start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=start_logit, labels=self.answer_span[:, 0], name='start_loss')
             end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=end_logit, labels=self.answer_span[:, 1], name='end_loss')
             last_loss = tf.reduce_mean(start_loss + end_loss)
-            self.answer = (tf.argmax(start_logit, axis=1), tf.argmax(end_logit, axis=1))
 
         with tf.variable_scope('train'):
             global_step = tf.train.get_or_create_global_step()

@@ -1,4 +1,5 @@
 import numpy as np
+from qa_data import PAD_ID
 
 class SquadDataset:
     def __init__(self, question_file, paragraph_file, answer_file, max_question_length, max_paragraph_length):
@@ -73,7 +74,7 @@ def pad_sequence(sequence, max_length):
         """
 
         # create padding vectors
-        sequence_padding = 0
+        sequence_padding = PAD_ID
         
         pad_length = max([0, max_length - len(sequence)])
         padded_sequence = sequence[:max_length]
