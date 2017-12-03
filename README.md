@@ -119,3 +119,6 @@ The project uses code from Stanford's CS224n to read and transform the original 
 [3] SQuAD: 100,000+ Questions for Machine Comprehension of Text, Rajpurkar et al, https://arxiv.org/abs/1606.05250
 
 [4] https://rajpurkar.github.io/SQuAD-explorer/
+
+## Author
+André Jonasson / @andrejonasson

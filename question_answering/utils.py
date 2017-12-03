@@ -40,7 +40,7 @@ def get_data_paths(data_dir, name='train'):
 
 def evaluate(session, model, data, size=100):
     q, p, ql, pl, a = data.get_batch(size, replace=False)
-    a_pred = session.run(model.answer, model.fill_feed_dict(q, p, ql, pl, a)) 
+    a_pred = session.run(model.answer, model.fill_feed_dict(q, p, ql, pl))   #, a
     total = 0
     f1_total = 0
 

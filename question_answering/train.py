@@ -21,7 +21,7 @@ from dataset import SquadDataset, pad_sequence
 logging.basicConfig(level=logging.INFO)
 
 # Mode
-tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train or eval')
+tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train/eval/shell/overfit')
 
 # Training hyperparameters
 tf.app.flags.DEFINE_integer("max_steps", 15000, "Steps until training loop stops.")
@@ -71,7 +71,6 @@ FLAGS = tf.app.flags.FLAGS
 
 # TODO implement batch evaluation
 # TODO hyperparameter random search
-# TODO add shell
 # TODO implement early stopping
 # TODO implement EM
 # TODO Write final Dev set eval to a file that's easily inspected
@@ -80,17 +79,36 @@ FLAGS = tf.app.flags.FLAGS
 def exact_match(prediction, truth):
     pass
 
+
 def reverse_indices(indices, rev_vocab):
+    """ Recovers words from embedding indices
+
+    Args:  
+        indices: Integer indices to recover words for.  
+        rev_vocab: Reverse vocabulary. Dictionary mapping indices to words.  
+    
+    Returns:  
+        String of words with space as separation
+    """
     return ' '.join([rev_vocab[idx] for idx in indices if idx != PAD_ID])
 
+
 def do_shell(model, dev):
+    """ Interactive shell
+
+    Type a question, write next for the next paragraph or enter a blank for another human's question.  
+
+    Args:  
+        model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
+        question, question_length, paragraph, paragraph_length  
+        dev: Development set
+    """
     # what is is_training if import_meta_graph
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     vocab_path = FLAGS.vocab_path or pjoin(FLAGS.data_dir, "vocab.dat")
-    vocab, rev_vocab = initialize_vocab(vocab_path) # dict, list
+    vocab, rev_vocab = initialize_vocab(vocab_path)
     # TODO no logs
     saver = tf.train.Saver()
-    # TODO add loop to run over all checkpoints in folder, 
     with tf.Session() as session:
         if False:  # load_meta
             last_meta = next(reversed([f for f in os.listdir(checkpoint_dir) if '.meta' in f]))
@@ -107,7 +125,6 @@ def do_shell(model, dev):
                 
                 question_input = input('QUESTION: ')
 
-                # Type a question, write next for the next paragraph or blank for another human's question
                 if question_input == 'next':
                     break
                 elif question_input:
@@ -137,20 +154,29 @@ def do_shell(model, dev):
                     correct_answer_idxs = paragraphs[0][start:end+1]
                     correct_answer = ''.join(reverse_indices(correct_answer_idxs, rev_vocab))
                     print(f'HUMAN: {correct_answer}')
-                
                 print()
 
 
-def do_eval(model, train, dev, eval_metric):
-    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
-
-    # Parameter space size information
+def parameter_space_size():
+    """ Parameter space size information """
     num_parameters = sum(v.get_shape().num_elements() for v in tf.trainable_variables())
     logging.info('Number of parameters %d' % num_parameters)
     for v in tf.trainable_variables():
         logging.info(f'Variable {v} has {v.get_shape().num_elements()} entries')
-    # TODO test if answer_span placeholder is still necessary without monitoredtrainingsesion
 
+
+def do_eval(model, train, dev, eval_metric):
+    """ Evaluates a model on training and development set
+
+    Args:  
+        model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
+        question, question_length, paragraph, paragraph_length  
+        train: Training set  
+        dev: Development set  
+        eval_metric: Evaluation metric function that returns a scalar metric.
+    """
+    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
+    parameter_space_size()
     saver = tf.train.Saver()
     # TODO add loop to run over all checkpoints in folder, 
     # Training session
@@ -166,18 +192,20 @@ def do_eval(model, train, dev, eval_metric):
 
 
 def do_train(model, train):
+    """ Evaluates a model on training and development set
+
+    Args:  
+        model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
+        question, question_length, paragraph, paragraph_length  
+        train: Training set
+    """
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     
     hooks = [
         tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
         tf.train.NanTensorHook(model.loss)
     ]
-
-    # Parameter space size information
-    num_parameters = sum(v.get_shape().num_elements() for v in tf.trainable_variables())
-    logging.info('Number of parameters %d' % num_parameters)
-    for v in tf.trainable_variables():
-        logging.info(f'Variable {v} has {v.get_shape().num_elements()} entries')
+    parameter_space_size()
 
     losses = []
 
@@ -214,9 +242,14 @@ def save_flags():
             json.dump(FLAGS.__flags, f, indent=4)
 
 
-def test_overfit(model, train, evaluate):
-    """
-    Tests that model can overfit on small datasets.
+def test_overfit(model, train, eval_metric):
+    """ Tests that model can overfit on small datasets.
+
+    Args:  
+        model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
+        question, question_length, paragraph, paragraph_length  
+        train: Training set  
+        eval_metric: Evaluation metric function that returns a scalar metric.
     """
     epochs = 100
     test_size = 32
@@ -241,13 +274,32 @@ def test_overfit(model, train, evaluate):
                 if step == steps_per_epoch-1:
                     print(f'Cross entropy: {loss:.2f}')
                     train.length = test_size
-                    f1 = evaluate(session, model, train, size=test_size)
+                    f1 = eval_metric(session, model, train, size=test_size)
                     print(f'F1: {f1:.2f}')
             global_step = tf.train.get_global_step().eval()
             print(f'Epoch took {timer() - epoch_start:.2f} s (step: {global_step})')
 
 
 def main(_):
+    """ Typical usage
+
+    For <model_name> see your folder name in ../checkpoints. 
+
+    Training
+    ``` sh
+    $ python --mode train --model <model> (if restoring or naming a model: --model_name <model_name>)
+    ```
+    
+    Evaluation
+    ``` sh
+    $ python --mode eval --model <model> --model_name <model_name>
+    ```
+
+    Shell
+    ``` sh
+    $ python --mode shell --model <model> --model_name <model_name>
+    ```
+    """
     # Load data
     train = SquadDataset(*get_data_paths(FLAGS.data_dir, name='train'), 
                          max_question_length=FLAGS.max_question_length, 
@@ -287,6 +339,7 @@ def main(_):
     elif FLAGS.mode == 'overfit':
         test_overfit(model, train, evaluate)
     elif FLAGS.mode == 'shell':
+        
         do_shell(model, dev)
     else:
         raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')
