@@ -11,7 +11,7 @@ import tensorflow as tf
 import numpy as np
 
 from preprocessing.squad_preprocess import tokenize
-from utils import initialize_vocab, get_normalized_train_dir, evaluate, get_data_paths
+from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths
 from qa_data import UNK_ID, PAD_ID
 from cat import Graph
 from baseline_model import Baseline
@@ -69,7 +69,6 @@ tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embeddin
 
 FLAGS = tf.app.flags.FLAGS
 
-# TODO implement batch evaluation
 # TODO hyperparameter random search
 # TODO implement early stopping
 # TODO implement EM
@@ -185,11 +184,52 @@ def do_eval(model, train, dev, eval_metric):
 
         # Train/Dev Evaluation
         start_evaluate = timer()
-        train_f1 = eval_metric(session, model, train, size=FLAGS.eval_size)
-        dev_f1 = eval_metric(session, model, dev, size=FLAGS.eval_size)
+        
+        prediction, truth = multibatch_prediction_truth(session, model, train, 20)
+        train_f1 = eval_metric(prediction, truth)
+
+        prediction, truth = multibatch_prediction_truth(session, model, dev, 20)
+        dev_f1 = eval_metric(prediction, truth)
+
         logging.info(f'Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
         logging.info(f'Time to evaluate: {timer() - start_evaluate:.1f} sec')
 
+
+def multibatch_prediction_truth(session, model, data, num_batches=None, random=False):
+    """ Returns batches of predictions and ground truth answers.
+
+    Args:  
+        session: TensorFlow Session.  
+        model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders.  
+        question, question_length, paragraph, paragraph_length.  
+        data: SquadDataset data to do minibatch evaluation on.  
+        num_batches: Number of batches of size FLAGS.batch_size to evaluate over. `None` for whole data set.  
+        random: True for random and possibly overlapping batches. False for deterministic sequential non-overlapping batches.  
+    
+    Returns:  
+        Tuple of  
+            Predictions, tuple of two numpy arrays containing start and end of answer spans  
+            Truth, list of tuples containing start and end of answer spans
+    """
+    if num_batches is None:
+        num_batches = data.length // FLAGS.batch_size
+    truth = []
+    start = []
+    end = []
+    for i in range(num_batches):
+        if random:
+            q, p, ql, pl, a = data.get_batch(FLAGS.batch_size, replace=False)
+        else:
+            begin_idx = i * FLAGS.batch_size
+            q, p, ql, pl, a = data[begin_idx:begin_idx+FLAGS.batch_size]
+        answer_start, answer_end = session.run(model.answer, model.fill_feed_dict(q, p, ql, pl))
+        start.append(answer_start)
+        end.append(answer_end)
+        truth.extend(a)
+    start = np.concatenate(start)
+    end = np.concatenate(end)
+    prediction = (start, end)
+    return prediction, truth
 
 def do_train(model, train):
     """ Evaluates a model on training and development set
@@ -232,6 +272,7 @@ def do_train(model, train):
 
 
 def save_flags():
+    """ Saves flags in checkpoints folder without overwriting previous """
     model_path = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     if not os.path.exists(model_path):
         os.makedirs(model_path)
@@ -274,8 +315,9 @@ def test_overfit(model, train, eval_metric):
                 if step == steps_per_epoch-1:
                     print(f'Cross entropy: {loss:.2f}')
                     train.length = test_size
-                    f1 = eval_metric(session, model, train, size=test_size)
-                    print(f'F1: {f1:.2f}')
+                    prediction, truth = multibatch_prediction_truth(session, model, train, 1)
+                    overfit_f1 = eval_metric(prediction, truth)
+                    print(f'F1: {overfit_f1:.2f}')
             global_step = tf.train.get_global_step().eval()
             print(f'Epoch took {timer() - epoch_start:.2f} s (step: {global_step})')
 
@@ -287,17 +329,17 @@ def main(_):
 
     Training
     ``` sh
-    $ python --mode train --model <model> (if restoring or naming a model: --model_name <model_name>)
+    $ python train.py --mode train --model <model> (if restoring or naming a model: --model_name <model_name>)
     ```
     
     Evaluation
     ``` sh
-    $ python --mode eval --model <model> --model_name <model_name>
+    $ python train.py --mode eval --model <model> --model_name <model_name>
     ```
 
     Shell
     ``` sh
-    $ python --mode shell --model <model> --model_name <model_name>
+    $ python train.py --mode shell --model <model> --model_name <model_name>
     ```
     """
     # Load data
@@ -335,11 +377,10 @@ def main(_):
         save_flags()
         do_train(model, train)
     elif FLAGS.mode == 'eval':
-        do_eval(model, train, dev, evaluate)
+        do_eval(model, train, dev, f1)
     elif FLAGS.mode == 'overfit':
-        test_overfit(model, train, evaluate)
+        test_overfit(model, train, f1)
     elif FLAGS.mode == 'shell':
-        
         do_shell(model, dev)
     else:
         raise ValueError(f'Incorrect mode entered, {FLAGS.mode}')

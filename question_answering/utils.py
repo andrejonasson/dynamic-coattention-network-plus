@@ -38,16 +38,13 @@ def get_data_paths(data_dir, name='train'):
     answer_file = pjoin(data_dir, f'{name}.span')
     return question_file, paragraph_file, answer_file
 
-def evaluate(session, model, data, size=100):
-    q, p, ql, pl, a = data.get_batch(size, replace=False)
-    a_pred = session.run(model.answer, model.fill_feed_dict(q, p, ql, pl))   #, a
+def f1(prediction, truth):
     total = 0
     f1_total = 0
-
-    for i, truth in enumerate(a):
+    for i, single_truth in enumerate(truth):
         total += 1
-        prediction = a_pred[0][i], a_pred[1][i]
-        f1 = f1_score(prediction, truth)
+        single_prediction = prediction[0][i], prediction[1][i]
+        f1 = f1_score(single_prediction, single_truth)
         f1_total += f1
     f1_total /= total
 
