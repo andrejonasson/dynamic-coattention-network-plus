@@ -57,7 +57,7 @@ tf.app.flags.DEFINE_integer("max_paragraph_length", 400, "Maximum paragraph leng
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
 
 # Evaluation arguments
-tf.app.flags.DEFINE_integer("eval_size", 100, "Number of samples to use for evaluation.")
+tf.app.flags.DEFINE_integer("eval_batches", 20, "Number of batches of size batch_size to use for evaluation.")
 
 # Directories etc.
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
@@ -164,15 +164,14 @@ def parameter_space_size():
         logging.info(f'Variable {v} has {v.get_shape().num_elements()} entries')
 
 
-def do_eval(model, train, dev, eval_metric):
+def do_eval(model, train, dev):
     """ Evaluates a model on training and development set
 
     Args:  
         model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
         question, question_length, paragraph, paragraph_length  
         train: Training set  
-        dev: Development set  
-        eval_metric: Evaluation metric function that returns a scalar metric.
+        dev: Development set
     """
     checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     parameter_space_size()
@@ -185,11 +184,11 @@ def do_eval(model, train, dev, eval_metric):
         # Train/Dev Evaluation
         start_evaluate = timer()
         
-        prediction, truth = multibatch_prediction_truth(session, model, train, 20)
-        train_f1 = eval_metric(prediction, truth)
+        prediction, truth = multibatch_prediction_truth(session, model, train, FLAGS.eval_batches)
+        train_f1 = f1(prediction, truth)
 
-        prediction, truth = multibatch_prediction_truth(session, model, dev, 20)
-        dev_f1 = eval_metric(prediction, truth)
+        prediction, truth = multibatch_prediction_truth(session, model, dev, FLAGS.eval_batches)
+        dev_f1 = f1(prediction, truth)
 
         logging.info(f'Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
         logging.info(f'Time to evaluate: {timer() - start_evaluate:.1f} sec')
@@ -283,14 +282,13 @@ def save_flags():
             json.dump(FLAGS.__flags, f, indent=4)
 
 
-def test_overfit(model, train, eval_metric):
+def test_overfit(model, train):
     """ Tests that model can overfit on small datasets.
 
     Args:  
         model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
         question, question_length, paragraph, paragraph_length  
         train: Training set  
-        eval_metric: Evaluation metric function that returns a scalar metric.
     """
     epochs = 100
     test_size = 32
@@ -316,7 +314,7 @@ def test_overfit(model, train, eval_metric):
                     print(f'Cross entropy: {loss:.2f}')
                     train.length = test_size
                     prediction, truth = multibatch_prediction_truth(session, model, train, 1)
-                    overfit_f1 = eval_metric(prediction, truth)
+                    overfit_f1 = f1(prediction, truth)
                     print(f'F1: {overfit_f1:.2f}')
             global_step = tf.train.get_global_step().eval()
             print(f'Epoch took {timer() - epoch_start:.2f} s (step: {global_step})')
@@ -377,9 +375,9 @@ def main(_):
         save_flags()
         do_train(model, train)
     elif FLAGS.mode == 'eval':
-        do_eval(model, train, dev, f1)
+        do_eval(model, train, dev)
     elif FLAGS.mode == 'overfit':
-        test_overfit(model, train, f1)
+        test_overfit(model, train)
     elif FLAGS.mode == 'shell':
         do_shell(model, dev)
     else:
