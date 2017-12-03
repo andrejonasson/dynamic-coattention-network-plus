@@ -121,4 +121,4 @@ The project uses code from Stanford's CS224n to read and transform the original 
 [4] https://rajpurkar.github.io/SQuAD-explorer/
 
 ## Author
-André Jonasson / @andrejonasson
+André Jonasson / [@andrejonasson](https://github.com/andrejonasson)
