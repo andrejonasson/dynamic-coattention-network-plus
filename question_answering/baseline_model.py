@@ -2,12 +2,12 @@ import copy
 
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
-
+from model_utils import maybe_dropout
 from baseline import encode, decode
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 
 class Baseline:
-    def __init__(self, pretrained_embeddings, hparams):
+    def __init__(self, pretrained_embeddings, hparams, is_training=False):
         self.hparams = copy.copy(hparams)
         self.encode = encode
         self.decode = decode
@@ -27,7 +27,19 @@ class Baseline:
             p_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.paragraph)
         
         with tf.variable_scope('prediction'):
-            encoding = self.encode(self.hparams['state_size'], q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            def cell_factory():
+                cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
+                input_keep_prob = maybe_dropout(hparams['input_keep_prob'], is_training)
+                output_keep_prob = maybe_dropout(hparams['output_keep_prob'], is_training)
+                state_keep_prob = maybe_dropout(hparams['state_keep_prob'], is_training)
+                dropout_cell = tf.contrib.rnn.DropoutWrapper(
+                    cell, 
+                    input_keep_prob=input_keep_prob, 
+                    output_keep_prob=output_keep_prob, 
+                    state_keep_prob=state_keep_prob
+                ) 
+                return dropout_cell
+            encoding = self.encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
             self.start_logit, self.end_logit = self.decode(encoding)
 
             # naive answer - need to search for max of a_s*a_e (dynamic programming)

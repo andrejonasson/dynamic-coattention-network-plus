@@ -1,11 +1,8 @@
 import copy
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
+from model_utils import maybe_dropout
 from dcn_plus import encode, decode, loss
-
-
-def maybe_dropout(keep_prob, is_training=False):
-    return tf.cond(tf.convert_to_tensor(is_training), lambda: keep_prob, lambda: 1.0)
 
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 

@@ -12,7 +12,7 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     affinity_mask_values = affinity_mask_value * tf.ones_like(affinity)
     return tf.where(score_mask, affinity, affinity_mask_values)
 
-def encode(state_size, question, question_length, paragraph, paragraph_length):
+def encode(cell_factory, question, question_length, paragraph, paragraph_length):
     """ Baseline Encoder that encodes questions and paragraphs into one representation.
 
     It first encodes the question and paragraphs using a shared BiLSTM, then uses a 
@@ -30,7 +30,7 @@ def encode(state_size, question, question_length, paragraph, paragraph_length):
     R = Word embedding
 
     Args:
-        state_size: A scalar integer. Number of units for RNN encoding.
+        cell_factory: Function of zero arguments returning an RNNCell.
         question: A tensor of rank 3, shape [N, Q, R]. Word embeddings for each word in the question.
         question_length: A tensor of rank 1, shape [N]. Lengths of questions.
         paragraph: A tensor of rank 3, shape [N, P, R]. Word embeddings for each word in the paragraphs.
@@ -41,14 +41,10 @@ def encode(state_size, question, question_length, paragraph, paragraph_length):
         
     """
 
-    def get_cell():
-        cell_type = tf.contrib.rnn.LSTMCell
-        return cell_type(num_units=state_size)
-
     with tf.variable_scope('initial_encoder'):
         # Shared RNN for question and paragraph encoding
-        cell_fw = get_cell()
-        cell_bw = get_cell()
+        cell_fw = cell_factory()
+        cell_bw = cell_factory()
         q_outputs, _ = tf.nn.bidirectional_dynamic_rnn(
             cell_fw = cell_fw,
             cell_bw = cell_bw,
@@ -79,8 +75,8 @@ def encode(state_size, question, question_length, paragraph, paragraph_length):
     with tf.variable_scope('final_encoder'):
         paragraph_with_coattention = tf.concat([paragraph_encoding, coattention_d], 2)
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-            cell_fw = get_cell(),
-            cell_bw = get_cell(),
+            cell_fw = cell_factory(),
+            cell_bw = cell_factory(),
             dtype = tf.float32,
             inputs = paragraph_with_coattention,
             sequence_length = paragraph_length,

@@ -326,7 +326,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
 
     with tf.variable_scope('start'):
         r_input = tf.concat([state, span_encoding], axis=1)
-        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout?
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
         alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size, keep_prob)
