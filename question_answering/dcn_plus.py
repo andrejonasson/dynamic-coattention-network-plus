@@ -357,7 +357,7 @@ def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
     layer2 = maxout_layer(layer1, hidden_size, pool_size, keep_prob)
     
     highway = tf.concat([layer1, layer2], -1)
-    output = maxout_layer(highway, 1, pool_size, keep_prob)
+    output = maxout_layer(highway, 1, pool_size)
     output = tf.squeeze(output, -1)
     return output
 
