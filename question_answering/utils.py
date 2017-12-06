@@ -63,3 +63,13 @@ def f1_score(prediction, truth):
     recall = 1.0 * num_same / len(true_range)
     f1 = (2 * precision * recall) / (precision + recall)
     return f1
+
+def exact_match(prediction, truth):
+    total = 0
+    em_total = 0
+    for i, single_truth in enumerate(truth):
+        if [prediction[0][i], prediction[1][i]] == single_truth:  # can possibly remove loop and just do the full comparison
+            em_total +=1
+        total += 1
+    em_total /= total
+    return em_total

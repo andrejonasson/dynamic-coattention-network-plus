@@ -11,13 +11,12 @@ import tensorflow as tf
 import numpy as np
 
 from preprocessing.squad_preprocess import tokenize
-from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths
+from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths, exact_match
 from qa_data import UNK_ID, PAD_ID
 from cat import Graph
 from baseline_model import Baseline
 from dcn_plus_model import DCNPlus
 from dataset import SquadDataset, pad_sequence
-
 logging.basicConfig(level=logging.INFO)
 
 # Mode
@@ -71,12 +70,7 @@ FLAGS = tf.app.flags.FLAGS
 
 # TODO hyperparameter random search
 # TODO implement early stopping
-# TODO implement EM
 # TODO Write final Dev set eval to a file that's easily inspected
-
-
-def exact_match(prediction, truth):
-    pass
 
 
 def reverse_indices(indices, rev_vocab):
@@ -186,11 +180,14 @@ def do_eval(model, train, dev):
         
         prediction, truth = multibatch_prediction_truth(session, model, train, FLAGS.eval_batches)
         train_f1 = f1(prediction, truth)
+        train_em = exact_match(prediction, truth)
 
         prediction, truth = multibatch_prediction_truth(session, model, dev, FLAGS.eval_batches)
         dev_f1 = f1(prediction, truth)
+        dev_em = exact_match(prediction, truth)
 
         logging.info(f'Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}')
+        logging.info(f'Train/Dev EM: {train_em:.3f}/{dev_em:.3f}')
         logging.info(f'Time to evaluate: {timer() - start_evaluate:.1f} sec')
 
 
