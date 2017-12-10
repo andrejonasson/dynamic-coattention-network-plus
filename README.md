@@ -1,8 +1,6 @@
 Dynamic Coattention Network Plus - Question Answering
 =====================================================
 
-Work in progress.
-
 ## Introduction
 
 SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning problem where the model receives a question and a passage and is tasked with answering the question using the passage. The answers are limited to spans of text. The training data consists of (question, paragraph, answer span) triplets. Due to the nature of the task, combining the information contained in the passage with the question posed is paramount to achieve good performance (See references for more information). Recurrent neural networks that combine the information from the question and paragraph using coattention mechanisms such as [1] and [2] have achieved the best results in the task so far.
@@ -37,11 +35,15 @@ Increasing embedding size and state size should improve performance further.
 
 To achieve higher performance at the cost of longer training while maintaining faster training time than DCN+, use the DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`. Using the DCN+ encoder with a naive decoder achieves >0.60 Dev F1 with similar settings as baseline.
 
+### Todos
+- Character embeddings
+- Sparse mixture of experts
+
 ## Instructions
 
 ### Dependencies
 
-The project has only been tested for Python 3.6 with TensorFlow 1.4. Support for prior versions will not be added.
+The project requires Python 3.6 with TensorFlow 1.4. Support for prior versions will not be added.
 
 ### Getting started
 
@@ -104,7 +106,10 @@ $ tensorboard --logdir checkpoints
 from the project folder and navigate to `localhost:6006`. The gradient norm and learning rate should be present among other metrics. The computational graph can also be viewed.
 
 ### Interactive Shell
-To see a trained model in action, load your model in mode `shell` and ask it questions about passages.
+
+<img src="shell.png">
+
+To see a trained model in action, load your model in mode `shell` and ask it questions about passages. 
 
 ## Acknowledgements
 

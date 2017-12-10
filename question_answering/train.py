@@ -41,11 +41,11 @@ tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-
-# DCN+ hyperparameters
 tf.app.flags.DEFINE_float("input_keep_prob", 0.975, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
+
+# DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.85, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
@@ -228,7 +228,7 @@ def multibatch_prediction_truth(session, model, data, num_batches=None, random=F
     return prediction, truth
 
 def do_train(model, train):
-    """ Evaluates a model on training and development set
+    """ Trains a model
 
     Args:  
         model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
@@ -361,7 +361,7 @@ def main(_):
     if FLAGS.model == 'dcnplus':
         model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'baseline':
-        model = Baseline(embeddings, FLAGS.__flags)
+        model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
         model = Graph(embeddings, is_training=is_training)
     else:
@@ -383,3 +383,4 @@ def main(_):
 
 if __name__ == "__main__":
     tf.app.run()
+
