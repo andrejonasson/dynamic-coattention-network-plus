@@ -9,11 +9,11 @@ SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning 
 
 ### Dynamic Coattention Network Plus (DCN+)
 
-DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the Transformer Network. The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of mixed objective the implementation uses cross entropy as in vanilla DCN.
+DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the Transformer Network. The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of a mixed objective the implementation uses cross entropy like the vanilla DCN.
 
 <img src="encoder.png">
 
-For the implementation see `dcn_plus.py`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the application specific decoder are modular and can easily be used with other networks.
+For the implementation see `dcn_plus.py`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
 
 ### Baseline model
 Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder). The baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
@@ -69,27 +69,27 @@ While the preprocessing is running you can continue with Step 3 in another termi
 ``` sh
 $ python question_answering/preprocessing/dwr.py <GLOVE_SOURCE>
 ```
-to download and extract GLoVe embeddings, where <GLOVE_SOURCE> is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `glove_ci`/`glove_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `glove_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
+to download and extract GLoVe embeddings, where <GLOVE_SOURCE> is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
 
-4. When Step 2 and 3 are complete change directory to the one containing the code (`qa_data.py` etc.) and run
+4. When Step 2 and 3 are complete change directory to the folder containing the code (`qa_data.py` etc.) and run
 ``` sh
 $ python qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <GLOVE_SOURCE>
 ```
-replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200, 300) and `<GLOVE_SOURCE>` by the embedding chosen above (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest as a development set.
+replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200 or 300) and `<GLOVE_SOURCE>` by the embedding chosen above. `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest as a development set.
 
 ### Usage
 
-To default mode of `main.py` is to train a DCN+ network, run
+The default mode of `main.py` is to train a DCN+ network, run
 ``` sh
 $ python main.py
 ```
-to train a network. See the source code for all the arguments that can be fed to `main.py`. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder by default. 
+to begin training. See the source code for all the arguments and modes that `main.py` supports. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder by default. 
 
 ### Interactive Shell
 
-<img src="shell.png">
-
 To see a trained model in action, load your model in mode `shell` and ask it questions about passages. 
+
+<img src="shell.png">
 
 ### Tensorboard
 For Tensorboard, run
