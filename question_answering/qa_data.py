@@ -1,4 +1,4 @@
-# CS224n
+""" CS224n, altered """
 
 from __future__ import absolute_import
 from __future__ import division
@@ -37,7 +37,7 @@ def setup_args():
     parser.add_argument("--vocab_dir", default=vocab_dir)
     parser.add_argument("--glove_dim", default=100, type=int)
     parser.add_argument("--random_init", default=True, type=bool)
-    parser.add_argument("--glove_source", choices=['wiki', 'crawl'])  # added for use with different glove sources
+    parser.add_argument("--glove_source", choices=['wiki', 'crawl_cs', 'crawl_ci'])  # added for use with different glove sources
     return parser.parse_args()
 
 
@@ -69,8 +69,11 @@ def process_glove(args, vocab_list, save_path, size=4e5, random_init=True):
     if not gfile.Exists(save_path + ".npz"):
         if args.glove_source == 'wiki':
             glove_path = os.path.join(args.glove_dir, "glove.6B.{}d.txt".format(args.glove_dim))
-        elif args.glove_source == 'crawl':
+        elif args.glove_source == 'crawl_cs':
             glove_path = os.path.join(args.glove_dir, "glove.840B.300d.txt")
+            args.glove_dim = 300
+        elif args.glove_source == 'crawl_ci':
+            glove_path = os.path.join(args.glove_dir, "glove.42B.300d.txt")
             args.glove_dim = 300
         
         if random_init:
@@ -166,7 +169,7 @@ if __name__ == '__main__':
 
     # ======== Trim Distributed Word Representation =======
     # If you use other word representations, you should change the code below
-    if args.glove_source == 'crawl':
+    if 'crawl' in args.glove_source:
         args.glove_dim = 300
     process_glove(args, rev_vocab, args.source_dir + "/glove.trimmed.{}".format(args.glove_dim),
                   random_init=args.random_init)

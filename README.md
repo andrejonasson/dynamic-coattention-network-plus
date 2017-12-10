@@ -38,6 +38,7 @@ To achieve higher performance at the cost of longer training while maintaining f
 ### Todos
 - Character embeddings
 - Sparse mixture of experts
+- Compatability with official evaluation script
 
 ## Instructions
 
@@ -54,49 +55,41 @@ Move under the project folder (the one containing the README.md)
 $ pip install -r requirements.txt
 ```
 
-2. To download squad run
-``` sh
-$ wget https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v1.1.json https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v1.1.json -P download/squad/
-```
-Download punkt if needed
+2. Download punkt if needed
 ``` sh
 $ python -m nltk.downloader punkt
 ```
-then preprocess SQuAD using
+then download and preprocess SQuAD using
 ``` sh
 $ python question_answering/preprocessing/squad_preprocess.py
 ```
-While the preprocessing is running you can continue with Step 3 in another terminal in the project folder. 
+While the preprocessing is running you can continue with Step 3 in another terminal. 
 
 3. Issue the command
 ``` sh
-$ wget http://nlp.stanford.edu/data/glove.6B.zip -P download/dwr/
+$ python question_answering/preprocessing/dwr.py <GLOVE_SOURCE>
 ```
-to download Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or
-``` sh
-$ wget http://nlp.stanford.edu/data/glove.42B.300d.zip -P download/dwr/
-```
-for Common Crawl 300 dimensional GLoVe word embeddings (~1.8gb). Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
+to download and extract GLoVe embeddings, where <GLOVE_SOURCE> is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `glove_ci`/`glove_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `glove_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
 
-Extract the Wikipedia embeddings
-``` sh
-$ tar -xzf download/dwr/glove.6B.zip --directory download/dwr/
-```
-or the Common Crawl embeddings
-``` sh
-$ tar -xzf download/dwr/glove.42B.300d.zip --directory download/dwr/
-```
 4. When Step 2 and 3 are complete change directory to the one containing the code (`qa_data.py` etc.) and run
 ``` sh
-$ python qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <SOURCE>
+$ python qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <GLOVE_SOURCE>
 ```
-replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200, 300) and `<SOURCE>` by `wiki` if using Wikipedia embeddings and `crawl` if using common crawl embeddings (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest is a development set.
+replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200, 300) and `<GLOVE_SOURCE>` by the embedding chosen above (you may omit `--glove_dim` if you choose `crawl`). `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest as a development set.
 
-Once complete run (Additionally, you may need to comment out the line importing `cat.py` in `train.py`.)
+### Usage
+
+To default mode of `main.py` is to train a DCN+ network, run
 ``` sh
-$ python train.py
+$ python main.py
 ```
-to train the network. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder. `train.py` contains all hyperparameters for the model.
+to train a network. See the source code for all the arguments that can be fed to `main.py`. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder by default. 
+
+### Interactive Shell
+
+<img src="shell.png">
+
+To see a trained model in action, load your model in mode `shell` and ask it questions about passages. 
 
 ### Tensorboard
 For Tensorboard, run
@@ -104,12 +97,6 @@ For Tensorboard, run
 $ tensorboard --logdir checkpoints
 ```
 from the project folder and navigate to `localhost:6006`. The gradient norm and learning rate should be present among other metrics. The computational graph can also be viewed.
-
-### Interactive Shell
-
-<img src="shell.png">
-
-To see a trained model in action, load your model in mode `shell` and ask it questions about passages. 
 
 ## Acknowledgements
 
