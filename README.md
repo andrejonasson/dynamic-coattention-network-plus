@@ -69,7 +69,7 @@ While the preprocessing is running you can continue with Step 3 in another termi
 ``` sh
 $ python question_answering/preprocessing/dwr.py <GLOVE_SOURCE>
 ```
-to download and extract GLoVe embeddings, where <GLOVE_SOURCE> is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
+to download and extract GLoVe embeddings, where `<GLOVE_SOURCE>` is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
 
 4. When Step 2 and 3 are complete change directory to the folder containing the code (`qa_data.py` etc.) and run
 ``` sh

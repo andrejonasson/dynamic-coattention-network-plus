@@ -36,6 +36,7 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this nor
 
 # Model hyperparameters
 tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
+tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, 'gru'/'lstm'.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")

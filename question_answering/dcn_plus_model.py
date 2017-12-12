@@ -25,7 +25,10 @@ class DCNPlus:
         
         with tf.variable_scope('prediction'):
             def cell_factory():
-                cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
+                if hparams['cell'].lower() == 'gru':
+                    cell = tf.contrib.rnn.GRUCell(num_units=hparams['state_size'])
+                elif hparams['cell'].lower() == 'lstm':
+                    cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
                 input_keep_prob = maybe_dropout(hparams['input_keep_prob'], is_training)
                 output_keep_prob = maybe_dropout(hparams['output_keep_prob'], is_training)
                 state_keep_prob = maybe_dropout(hparams['state_keep_prob'], is_training)
