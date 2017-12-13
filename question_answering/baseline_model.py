@@ -9,8 +9,6 @@ from baseline import encode, decode
 class Baseline:
     def __init__(self, pretrained_embeddings, hparams, is_training=False):
         self.hparams = copy.copy(hparams)
-        self.encode = encode
-        self.decode = decode
         self.pretrained_embeddings = pretrained_embeddings
 
         # Setup placeholders
@@ -39,8 +37,8 @@ class Baseline:
                     state_keep_prob=state_keep_prob
                 ) 
                 return dropout_cell
-            encoding = self.encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
-            self.start_logit, self.end_logit = self.decode(encoding)
+            encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            self.start_logit, self.end_logit = decode(encoding)
 
             # naive answer - need to search for max of a_s*a_e (dynamic programming)
             self.answer = (tf.argmax(self.start_logit, axis=1), tf.argmax(self.end_logit, axis=1))

@@ -1,10 +1,9 @@
 import copy
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
-from model_utils import maybe_dropout
+from modules import maybe_dropout
 from dcn_plus import encode, decode, loss
 
-# TODO output from decoder + loss definition (_maybe_mask_score?)
 
 class DCNPlus:
     def __init__(self, pretrained_embeddings, hparams, is_training=False):
@@ -37,7 +36,7 @@ class DCNPlus:
                     input_keep_prob=input_keep_prob, 
                     output_keep_prob=output_keep_prob, 
                     state_keep_prob=state_keep_prob
-                ) 
+                )
                 return dropout_cell
             
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
