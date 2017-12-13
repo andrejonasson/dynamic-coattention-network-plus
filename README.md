@@ -71,9 +71,9 @@ $ python question_answering/preprocessing/dwr.py <GLOVE_SOURCE>
 ```
 to download and extract GLoVe embeddings, where `<GLOVE_SOURCE>` is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
 
-4. When Step 2 and 3 are complete change directory to the folder containing the code (`qa_data.py` etc.) and run
+4. When Step 2 and 3 are complete change directory to the folder containing the code (`main.py` etc.) and run
 ``` sh
-$ python qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <GLOVE_SOURCE>
+$ python preprocessing/qa_data.py --glove_dim <EMBEDDINGS_DIMENSIONS> --glove_source <GLOVE_SOURCE>
 ```
 replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 200 or 300) and `<GLOVE_SOURCE>` by the embedding chosen above. `qa_data.py` will process the embeddings and create a 95-5 split of the training data where the 95% will be used as a training set and the rest as a development set.
 

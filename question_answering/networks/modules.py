@@ -6,9 +6,10 @@ def maybe_dropout(keep_prob, is_training=False):
 
 
 def max_span_product(start, end, length):
-    """ Finds maximum product of start and end span probabilities
+    """ Finds answer span with the largest answer span probability product
     
-    Dynamic programming approach for finding maximum product in linear time.
+    Dynamic programming approach for finding maximum product in linear time is applied
+    to efficiently find the solution.
 
     Args:  
         start: Tensor of shape [N, D]. Probabilities for start of span.  
@@ -53,4 +54,4 @@ def max_span_product(start, end, length):
         return i, j+1, span_start, span_end, argmax_start, max_product
 
     i, j, span_start, span_end, argmax_start, max_product = tf.while_loop(cond, body, loop_vars)
-    return i, span_start, span_end, argmax_start, max_product
+    return span_start, span_end

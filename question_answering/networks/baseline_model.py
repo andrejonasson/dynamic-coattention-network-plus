@@ -1,11 +1,12 @@
 import copy
+
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
-from modules import maybe_dropout
-from dcn_plus import encode, decode, loss
+from networks.modules import maybe_dropout
+from networks.baseline import encode, decode
+# TODO output from decoder + loss definition (_maybe_mask_score?)
 
-
-class DCNPlus:
+class Baseline:
     def __init__(self, pretrained_embeddings, hparams, is_training=False):
         self.hparams = copy.copy(hparams)
         self.pretrained_embeddings = pretrained_embeddings
@@ -16,18 +17,16 @@ class DCNPlus:
         self.paragraph = tf.placeholder(tf.int32, (None, None), name='paragraph')
         self.paragraph_length = tf.placeholder(tf.int32, (None,), name='paragraph_length')
         self.answer_span = tf.placeholder(tf.int32, (None, 2), name='answer_span')
+        self.keep_prob = tf.placeholder(tf.float32, (), name='keep_prob')
 
         with tf.variable_scope('embeddings'):
-            embedded_vocab = tf.Variable(self.pretrained_embeddings, name='shared_embedding', trainable=hparams['trainable_embeddings'], dtype=tf.float32)  
+            embedded_vocab = tf.Variable(self.pretrained_embeddings, name='shared_embedding', trainable=self.hparams['trainable_embeddings'], dtype=tf.float32)  
             q_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.question)
             p_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.paragraph)
         
         with tf.variable_scope('prediction'):
             def cell_factory():
-                if hparams['cell'].lower() == 'gru':
-                    cell = tf.contrib.rnn.GRUCell(num_units=hparams['state_size'])
-                elif hparams['cell'].lower() == 'lstm':
-                    cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
+                cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
                 input_keep_prob = maybe_dropout(hparams['input_keep_prob'], is_training)
                 output_keep_prob = maybe_dropout(hparams['output_keep_prob'], is_training)
                 state_keep_prob = maybe_dropout(hparams['state_keep_prob'], is_training)
@@ -36,54 +35,52 @@ class DCNPlus:
                     input_keep_prob=input_keep_prob, 
                     output_keep_prob=output_keep_prob, 
                     state_keep_prob=state_keep_prob
-                )
+                ) 
                 return dropout_cell
-            
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
-            logits = decode(encoding, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
-            last_iter_logit = logits.read(hparams['max_iter']-1)
-            start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
-            self.answer = (tf.argmax(start_logit, axis=1, name='answer_start'), tf.argmax(end_logit, axis=1, name='answer_end'))
+            self.start_logit, self.end_logit = decode(encoding)
+
+            # naive answer - need to search for max of a_s*a_e (dynamic programming)
+            self.answer = (tf.argmax(self.start_logit, axis=1), tf.argmax(self.end_logit, axis=1))
+            # TODO _maybe_mask_score  [tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)]
 
         with tf.variable_scope('loss'):
-            self.loss = loss(logits, self.answer_span, max_iter=hparams['max_iter'])
+            start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.start_logit, labels=self.answer_span[:, 0], name='start_loss')
+            end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=self.end_logit, labels=self.answer_span[:, 1], name='end_loss')
+            loss_per_example = start_loss + end_loss
+            self.loss = tf.reduce_mean(loss_per_example)
 
-        with tf.variable_scope('last_iter_loss'):
-            # Solely for diagnostics purposes
-            start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=start_logit, labels=self.answer_span[:, 0], name='start_loss')
-            end_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=end_logit, labels=self.answer_span[:, 1], name='end_loss')
-            last_loss = tf.reduce_mean(start_loss + end_loss)
-
+        global_step = tf.train.get_or_create_global_step()
         with tf.variable_scope('train'):
-            global_step = tf.train.get_or_create_global_step()
-            if hparams['exponential_decay']:
-                lr = tf.train.exponential_decay(learning_rate=hparams['learning_rate'], 
+            if self.hparams['exponential_decay']:
+                lr = tf.train.exponential_decay(learning_rate=self.hparams['learning_rate'], 
                                                 global_step=global_step, 
-                                                decay_steps=hparams['decay_steps'], 
-                                                decay_rate=hparams['decay_rate'], 
-                                                staircase=hparams['staircase']) 
+                                                decay_steps=self.hparams['decay_steps'], 
+                                                decay_rate=self.hparams['decay_rate'], 
+                                                staircase=self.hparams['staircase']) 
             else:
-                lr = hparams['learning_rate']
+                lr = self.hparams['learning_rate']
             optimizer = tf.train.AdamOptimizer(lr)
             grad, tvars = zip(*optimizer.compute_gradients(self.loss))
-            if hparams['clip_gradients']:
-                grad, _ = tf.clip_by_global_norm(grad, hparams['max_gradient_norm'], name='gradient_clipper')  
+            if self.hparams['clip_gradients']:
+                grad, _ = tf.clip_by_global_norm(grad, self.hparams['max_gradient_norm'], name='gradient_clipper')  
             grad_norm = tf.global_norm(grad)
             self.train = optimizer.apply_gradients(zip(grad, tvars), global_step=global_step, name='apply_grads')
         
         tf.summary.scalar('cross_entropy', self.loss)
-        tf.summary.scalar('cross_entropy_last_iter', last_loss)
         tf.summary.scalar('learning_rate', lr)
         tf.summary.scalar('grad_norm', grad_norm)
 
-    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None):
+    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None, keep_prob=1.0):
         feed_dict = {
             self.question: question,
             self.paragraph: paragraph,
             self.question_length: question_length, 
             self.paragraph_length: paragraph_length,
+            self.keep_prob: keep_prob  # need scheme for feeding in dropout properly
         }
 
+        # TODO Why does it require answer_span placeholder when answer_span is not on the path to model.answer?
         if answer_span is not None:
             feed_dict[self.answer_span] = answer_span
 

@@ -13,8 +13,8 @@ import numpy as np
 from preprocessing.squad_preprocess import tokenize
 from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths, exact_match
 from qa_data import UNK_ID, PAD_ID
-from baseline_model import Baseline
-from dcn_plus_model import DCNPlus
+from networks.baseline_model import Baseline
+from networks.dcn_plus_model import DCNPlus
 from dataset import SquadDataset, pad_sequence
 logging.basicConfig(level=logging.INFO)
 
@@ -363,7 +363,7 @@ def main(_):
     elif FLAGS.model == 'baseline':
         model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
-        from cat import Graph
+        from networks.cat import Graph
         model = Graph(embeddings, is_training=is_training)
     else:
         raise ValueError(f'{FLAGS.model} is not a supported model')
