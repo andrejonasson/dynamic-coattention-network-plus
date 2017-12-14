@@ -12,7 +12,7 @@ import numpy as np
 
 from preprocessing.squad_preprocess import tokenize
 from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths, exact_match
-from qa_data import UNK_ID, PAD_ID
+from preprocessing.qa_data import UNK_ID, PAD_ID
 from networks.baseline_model import Baseline
 from networks.dcn_plus_model import DCNPlus
 from dataset import SquadDataset, pad_sequence
@@ -174,6 +174,7 @@ def do_eval(model, train, dev):
     # Training session
     with tf.Session() as session:
         saver.restore(session, tf.train.latest_checkpoint(checkpoint_dir))
+        print('Evaluation in progress.', flush=True)
 
         # Train/Dev Evaluation
         start_evaluate = timer()

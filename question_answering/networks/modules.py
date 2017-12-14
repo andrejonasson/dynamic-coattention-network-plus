@@ -5,7 +5,7 @@ def maybe_dropout(keep_prob, is_training=False):
     return tf.cond(tf.convert_to_tensor(is_training), lambda: keep_prob, lambda: 1.0)
 
 
-def max_span_product(start, end, length):
+def max_product_span(start, end, length):
     """ Finds answer span with the largest answer span probability product
     
     Dynamic programming approach for finding maximum product in linear time is applied

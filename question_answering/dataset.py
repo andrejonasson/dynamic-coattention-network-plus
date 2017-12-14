@@ -1,5 +1,5 @@
 import numpy as np
-from qa_data import PAD_ID
+from preprocessing.qa_data import PAD_ID
 
 class SquadDataset:
     def __init__(self, question_file, paragraph_file, answer_file, max_question_length, max_paragraph_length):

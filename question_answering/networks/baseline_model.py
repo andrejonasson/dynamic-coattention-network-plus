@@ -2,7 +2,8 @@ import copy
 
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
-from networks.modules import maybe_dropout
+
+from networks.modules import maybe_dropout, max_product_span
 from networks.baseline import encode, decode
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 
@@ -26,7 +27,10 @@ class Baseline:
         
         with tf.variable_scope('prediction'):
             def cell_factory():
-                cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
+                if hparams['cell'].lower() == 'gru':
+                    cell = tf.contrib.rnn.GRUCell(num_units=hparams['state_size'])
+                elif hparams['cell'].lower() == 'lstm':
+                    cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
                 input_keep_prob = maybe_dropout(hparams['input_keep_prob'], is_training)
                 output_keep_prob = maybe_dropout(hparams['output_keep_prob'], is_training)
                 state_keep_prob = maybe_dropout(hparams['state_keep_prob'], is_training)
@@ -39,9 +43,8 @@ class Baseline:
                 return dropout_cell
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
             self.start_logit, self.end_logit = decode(encoding)
-
-            # naive answer - need to search for max of a_s*a_e (dynamic programming)
-            self.answer = (tf.argmax(self.start_logit, axis=1), tf.argmax(self.end_logit, axis=1))
+            start_prob, end_prob = tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)
+            self.answer = max_product_span(start_prob, end_prob, self.paragraph_length)
             # TODO _maybe_mask_score  [tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)]
 
         with tf.variable_scope('loss'):
