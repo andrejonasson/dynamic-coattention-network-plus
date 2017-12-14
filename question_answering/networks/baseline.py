@@ -1,16 +1,6 @@
 import tensorflow as tf
+from networks.modules import maybe_mask_affinity
 
-def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
-    """ Masks affinity along its third dimension with `affinity_mask_value`
-    Useful for masking entries for sequences longer than sequence_length prior to 
-    applying softmax.
-    """
-    if sequence_length is None:
-        return affinity
-    score_mask = tf.sequence_mask(sequence_length, maxlen=tf.shape(affinity)[1])
-    score_mask = tf.tile(tf.expand_dims(score_mask, 2), (1, 1, tf.shape(affinity)[2]))
-    affinity_mask_values = affinity_mask_value * tf.ones_like(affinity)
-    return tf.where(score_mask, affinity, affinity_mask_values)
 
 def encode(cell_factory, question, question_length, paragraph, paragraph_length):
     """ Baseline Encoder that encodes questions and paragraphs into one representation.
@@ -83,26 +73,3 @@ def encode(cell_factory, question, question_length, paragraph, paragraph_length)
         )
         encoding = tf.concat(outputs, 2)
     return encoding  # N x P x 2H
-
-def decode(encoding):
-    """ Decodes encoding to logits used to find answer span
-
-    Args:
-        encoding: Document representation, shape [N, D, ?].
-    
-    Returns:
-        A tuple containing
-            Logit for answer span start position, shape [N, D]
-            Logit for answer span end position, shape [N, D]
-    """
-    
-    with tf.variable_scope('decode_start'):
-        start_logit = tf.layers.dense(encoding, 1)
-        start_logit = tf.squeeze(start_logit, axis=-1)
-    
-    # TODO condition decode_end on decode_start
-    with tf.variable_scope('decode_end'):
-        end_logit = tf.layers.dense(encoding, 1)
-        end_logit = tf.squeeze(end_logit, axis=-1)
-
-    return start_logit, end_logit

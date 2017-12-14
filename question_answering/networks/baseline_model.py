@@ -3,8 +3,8 @@ import copy
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
-from networks.modules import maybe_dropout, max_product_span
-from networks.baseline import encode, decode
+from networks.modules import maybe_dropout, max_product_span, naive_decode as decode
+from networks.baseline import encode
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 
 class Baseline:
@@ -73,17 +73,15 @@ class Baseline:
         tf.summary.scalar('cross_entropy', self.loss)
         tf.summary.scalar('learning_rate', lr)
         tf.summary.scalar('grad_norm', grad_norm)
-
-    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None, keep_prob=1.0):
+    
+    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None):
         feed_dict = {
             self.question: question,
             self.paragraph: paragraph,
             self.question_length: question_length, 
-            self.paragraph_length: paragraph_length,
-            self.keep_prob: keep_prob  # need scheme for feeding in dropout properly
+            self.paragraph_length: paragraph_length
         }
 
-        # TODO Why does it require answer_span placeholder when answer_span is not on the path to model.answer?
         if answer_span is not None:
             feed_dict[self.answer_span] = answer_span
 

@@ -25,6 +25,7 @@ Shape notation:
 """
 
 import tensorflow as tf
+from networks.modules import maybe_mask_affinity
 
 def encode(cell_factory, query, query_length, document, document_length):
     """ DCN+ deep residual coattention encoder.
@@ -139,28 +140,6 @@ def concat_sentinel(sentinel_name, other_tensor):
     sentinel = tf.tile(sentinel, (tf.shape(other_tensor)[0], 1, 1))
     other_tensor = tf.concat([sentinel, other_tensor], 1)
     return other_tensor
-
-
-def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
-    """ Masks affinity along its third dimension with `affinity_mask_value`.
-
-    Used for masking entries of sequences longer than `sequence_length` prior to 
-    applying softmax.  
-
-    Args:  
-        affinity: Tensor of rank 3, shape [N, D or Q, Q or D] where attention logits are in the second dimension.  
-        sequence_length: Tensor of rank 1, shape [N]. Lengths of second dimension of the affinity.  
-        affinity_mask_value: (optional) Value to mask affinity with.  
-    
-    Returns:  
-        Masked affinity, same shape as affinity.
-    """
-    if sequence_length is None:
-        return affinity
-    score_mask = tf.sequence_mask(sequence_length, maxlen=tf.shape(affinity)[1])
-    score_mask = tf.tile(tf.expand_dims(score_mask, 2), (1, 1, tf.shape(affinity)[2]))
-    affinity_mask_values = affinity_mask_value * tf.ones_like(affinity)
-    return tf.where(score_mask, affinity, affinity_mask_values)
 
 
 def coattention(query, query_length, document, document_length, sentinel=False):
@@ -413,25 +392,3 @@ def loss(logits, answer_span, max_iter):
     loss = tf.reduce_mean(loss_per_example)
     return loss
 
-
-def naive_decode(encoding):
-    """ Decodes encoding to answer span logits.
-
-    Args:  
-        encoding: Document representation, shape [N, D, xH].  
-    
-    Returns:  
-        A tuple containing  
-            Logit for answer span start position, shape [N, D].  
-            Logit for answer span end position, shape [N, D].
-    """
-    
-    with tf.variable_scope('decode_start'):
-        start_logit = tf.layers.dense(encoding, 1)
-        start_logit = tf.squeeze(start_logit)
-
-    with tf.variable_scope('decode_end'):
-        end_logit = tf.layers.dense(encoding, 1)
-        end_logit = tf.squeeze(end_logit)
-
-    return start_logit, end_logit
