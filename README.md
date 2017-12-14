@@ -40,6 +40,11 @@ To achieve higher performance at the cost of longer training while maintaining f
 - Sparse mixture of experts
 - Compatability with official evaluation script
 
+## Additional Modules
+
+### Linear time maximum probability product answer span
+The project contains an implementation of the dynamic programming approach for finding the maximum product of the start and end probabilities as used by BiDAF and others. The implementation is inspired by [bi-att-flow](https://github.com/allenai/bi-att-flow/blob/master/basic_cnn/evaluator.py), except that it acts on batches instead of single examples and is purely in TensorFlow.
+
 ## Instructions
 
 ### Dependencies
