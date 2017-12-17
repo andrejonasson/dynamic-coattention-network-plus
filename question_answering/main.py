@@ -5,7 +5,6 @@ import itertools
 from datetime import datetime
 from timeit import default_timer as timer
 from os.path import join as pjoin
-from collections import Counter
 
 import tensorflow as tf
 import numpy as np
@@ -16,6 +15,7 @@ from preprocessing.qa_data import UNK_ID, PAD_ID
 from networks.baseline_model import Baseline
 from networks.dcn_plus_model import DCNPlus
 from dataset import SquadDataset, pad_sequence
+
 logging.basicConfig(level=logging.INFO)
 
 # Mode
@@ -71,7 +71,7 @@ FLAGS = tf.app.flags.FLAGS
 # TODO hyperparameter random search
 # TODO implement early stopping
 # TODO Write final Dev set eval to a file that's easily inspected
-
+# TODO performance by question and paragraph length (later by )
 
 def reverse_indices(indices, rev_vocab):
     """ Recovers words from embedding indices
@@ -228,6 +228,7 @@ def multibatch_prediction_truth(session, model, data, num_batches=None, random=F
     prediction = (start, end)
     return prediction, truth
 
+
 def do_train(model, train):
     """ Trains a model
 
@@ -273,11 +274,17 @@ def save_flags():
     model_path = os.path.join(FLAGS.train_dir, FLAGS.model_name)
     if not os.path.exists(model_path):
         os.makedirs(model_path)
-        
-    json_path = os.path.join(FLAGS.train_dir, FLAGS.model_name, "flags.json")
-    if not os.path.exists(json_path):
-        with open(json_path, 'w') as f:
-            json.dump(FLAGS.__flags, f, indent=4)
+    
+    for i in itertools.count():
+        json_path = os.path.join(FLAGS.train_dir, FLAGS.model_name, f"flags_{i}.json")
+        if os.path.exists(json_path):
+            with open(json_path, 'r') as f:
+                if json.load(f) == FLAGS.__flags:
+                    break
+        else:
+            with open(json_path, 'w') as f:
+                json.dump(FLAGS.__flags, f, indent=4)
+            break
 
 
 def test_overfit(model, train):
