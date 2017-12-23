@@ -88,10 +88,9 @@ def pad_sequences(sequences, max_length):
     return padded_sequences, lengths
 
 if __name__ == '__main__':
-    from train import get_data_paths
+    from utils import get_data_paths
     import os
     data_dir = os.path.join("..", "data", "squad")
     dataset = SquadDataset(*get_data_paths(data_dir, name='train'), 10)
     print(dataset.get_batch(2))
-
     print(dataset[:2])

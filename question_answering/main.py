@@ -37,9 +37,9 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this nor
 # Model hyperparameters
 tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
 tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, 'gru'/'lstm'.")
+tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
-tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_float("input_keep_prob", 0.975, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of outputs from RNN.")
@@ -246,11 +246,13 @@ def do_train(model, train):
     parameter_space_size()
 
     losses = []
-
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
     # Training session  
     with tf.train.MonitoredTrainingSession(hooks=hooks,
                                            checkpoint_dir=checkpoint_dir, 
-                                           save_summaries_steps=20) as session:
+                                           save_summaries_steps=20,
+                                           config=config) as session:
         while not session.should_stop():
             feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size))
             fetch_dict = {
@@ -351,11 +353,7 @@ def main(_):
                          max_paragraph_length=FLAGS.max_paragraph_length)
     dev = SquadDataset(*get_data_paths(FLAGS.data_dir, name='val'), 
                          max_question_length=FLAGS.max_question_length, 
-                         max_paragraph_length=FLAGS.max_paragraph_length) # probably not cut
-    # TODO convert to TF Dataset API
-    # train = tf.convert_to_tensor(train)
-    # dev = tf.convert_to_tensor(dev)
-    # tf.contrib.data.Dataset()
+                         max_paragraph_length=FLAGS.max_paragraph_length) # change to eval to zero if too long
 
     # logging.info(f'Train/Dev size {train.length}/{dev.length}')
 
