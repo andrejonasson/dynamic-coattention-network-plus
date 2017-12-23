@@ -25,7 +25,7 @@ Shape notation:
 """
 
 import tensorflow as tf
-from networks.modules import maybe_mask_affinity
+from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor
 
 def encode(cell_factory, query, query_length, document, document_length):
     """ DCN+ deep residual coattention encoder.
@@ -65,7 +65,7 @@ def encode(cell_factory, query, query_length, document, document_length):
     ]
 
     with tf.variable_scope('final_encoder'):
-        document_representation = tf.concat(document_representations, 2)
+        document_representation = convert_gradient_to_tensor(tf.concat(document_representations, 2))
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
             cell_fw = cell_factory(),
             cell_bw = cell_factory(),
@@ -73,7 +73,7 @@ def encode(cell_factory, query, query_length, document, document_length):
             inputs = document_representation,
             sequence_length = document_length,
         )
-        encoding = tf.concat(outputs, 2)
+        encoding = convert_gradient_to_tensor(tf.concat(outputs, 2))
     return encoding
 
 
@@ -103,7 +103,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         inputs = query,
         sequence_length = query_length
     )
-    query_encoding = tf.concat(query_fw_bw_encodings, 2)        
+    query_encoding = convert_gradient_to_tensor(tf.concat(query_fw_bw_encodings, 2))
     
     query_encoding = tf.layers.dense(
         query_encoding, 
@@ -120,7 +120,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         sequence_length = document_length
     )
         
-    document_encoding = tf.concat(document_fw_bw_encodings, 2)
+    document_encoding = convert_gradient_to_tensor(tf.concat(document_fw_bw_encodings, 2))
 
     return query_encoding, document_encoding
 
@@ -138,7 +138,7 @@ def concat_sentinel(sentinel_name, other_tensor):
     sentinel = tf.get_variable(sentinel_name, other_tensor.get_shape()[2], tf.float32)
     sentinel = tf.reshape(sentinel, (1, 1, -1))
     sentinel = tf.tile(sentinel, (tf.shape(other_tensor)[0], 1, 1))
-    other_tensor = tf.concat([sentinel, other_tensor], 1)
+    other_tensor = convert_gradient_to_tensor(tf.concat([sentinel, other_tensor], 1))
     return other_tensor
 
 
@@ -212,7 +212,7 @@ def start_and_end_encoding(encoding, answer):
     start, end = answer[:, 0], answer[:, 1]
     encoding_start = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), start], axis=1))  # May be causing UserWarning
     encoding_end = tf.gather_nd(encoding, tf.stack([tf.range(batch_size), end], axis=1))
-    return tf.concat([encoding_start, encoding_end], axis=1)
+    return convert_gradient_to_tensor(tf.concat([encoding_start, encoding_end], axis=1))
 
 
 def decode(encoding, state_size=100, pool_size=4, max_iter=4, keep_prob=1.0):
@@ -304,18 +304,20 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
     span_encoding = start_and_end_encoding(encoding, answer)
 
     with tf.variable_scope('start'):
-        r_input = tf.concat([state, span_encoding], axis=1)
+        r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout?
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-        alpha = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size, keep_prob)
-    
+        highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
+        alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
+
     with tf.variable_scope('end'):
-        r_input = tf.concat([state, span_encoding], axis=1)
+        r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
-        beta = highway_maxout(tf.concat([encoding, r], 2), state_size, pool_size, keep_prob)
+        highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
+        beta = highway_maxout(highway_input, state_size, pool_size, keep_prob)
     
     return tf.stack([alpha, beta], axis=2)
     
@@ -335,7 +337,7 @@ def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
     layer1 = maxout_layer(inputs, hidden_size, pool_size, keep_prob)
     layer2 = maxout_layer(layer1, hidden_size, pool_size, keep_prob)
     
-    highway = tf.concat([layer1, layer2], -1)
+    highway = convert_gradient_to_tensor(tf.concat([layer1, layer2], -1))
     output = maxout_layer(highway, 1, pool_size)
     output = tf.squeeze(output, -1)
     return output
