@@ -301,9 +301,9 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         Tensor of rank 3, shape [N, D, 2]. Answer span logits for answer start and end.
     """
     maxlen = tf.shape(encoding)[1]
-    span_encoding = start_and_end_encoding(encoding, answer)
-
+    
     with tf.variable_scope('start'):
+        span_encoding = start_and_end_encoding(encoding, answer)
         r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout?
         r = tf.expand_dims(r, 1)
@@ -311,11 +311,10 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
 
-    updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
-    updated_answer = tf.stack([updated_start, answer[:, :, 1]], axis=2)
-    span_encoding = start_and_end_encoding(encoding, updated_answer)
-
     with tf.variable_scope('end'):
+        updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
+        updated_answer = tf.stack([updated_start, answer[:, 1]], axis=1)
+        span_encoding = start_and_end_encoding(encoding, updated_answer)
         r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)

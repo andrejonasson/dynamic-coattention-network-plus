@@ -1,5 +1,5 @@
 import tensorflow as tf
-
+from tensorflow.python.framework import function
 
 def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
     """ Masks affinity along its third dimension with `affinity_mask_value`.
@@ -100,3 +100,23 @@ def naive_decode(encoding):
         end_logit = tf.squeeze(end_logit)
 
     return start_logit, end_logit
+
+
+@function.Defun(
+    python_grad_func=lambda x, dy: tf.convert_to_tensor(dy),
+    shape_func=lambda op: [op.inputs[0].get_shape()])
+def convert_gradient_to_tensor(x):
+  """Identity operation whose gradient is converted to a `Tensor`.
+  Currently, the gradient to `tf.concat` is particularly expensive to
+  compute if dy is an `IndexedSlices` (a lack of GPU implementation
+  forces the gradient operation onto CPU).  This situation occurs when
+  the output of the `tf.concat` is eventually passed to `tf.gather`.
+  It is sometimes faster to convert the gradient to a `Tensor`, so as
+  to get the cheaper gradient for `tf.concat`.  To do this, replace
+  `tf.concat(x)` with `convert_gradient_to_tensor(tf.concat(x))`.
+  Args:
+    x: A `Tensor`.
+  Returns:
+    The input `Tensor`.
+  """
+  return x
