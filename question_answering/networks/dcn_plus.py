@@ -311,6 +311,10 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
 
+    updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
+    updated_answer = tf.stack([updated_start, answer[:, :, 1]], axis=2)
+    span_encoding = start_and_end_encoding(encoding, updated_answer)
+
     with tf.variable_scope('end'):
         r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
