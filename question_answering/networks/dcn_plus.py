@@ -385,7 +385,7 @@ def loss(logits, answer_span, max_iter):
         on same scale as other more traditional methods.
     """
     batch_size = tf.shape(answer_span)[0]
-    logits = logits.concat()
+    logits = convert_gradient_to_tensor(logits.concat())
     answer_span_repeated = tf.tile(answer_span, (max_iter, 1))
 
     start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits[:, :, 0], labels=answer_span_repeated[:, 0], name='start_loss')
