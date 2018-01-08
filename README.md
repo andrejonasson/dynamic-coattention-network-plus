@@ -39,6 +39,7 @@ To achieve higher performance at the cost of longer training while maintaining f
 - Character embeddings
 - Sparse mixture of experts
 - Compatability with official evaluation script
+- Figure out where and to what degree dropout should be applied
 
 ## Additional Modules
 

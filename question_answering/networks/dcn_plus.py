@@ -53,7 +53,7 @@ def encode(cell_factory, query, query_length, document, document_length):
         summary_q_encoding, summary_d_encoding = query_document_encoder(cell_factory(), cell_factory(), summary_q_1, query_length, summary_d_1, document_length)
     
     with tf.variable_scope('coattention_2'):
-        _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)        
+        _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)
 
     document_representations = [
         document_encoding,  # E^D_1
@@ -77,7 +77,7 @@ def encode(cell_factory, query, query_length, document, document_length):
     return encoding
 
 
-def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length):
+def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length, query_affine_layer=True):
     """ DCN+ Query Document Encoder layer.
     
     Forward and backward cells are shared between the bidirectional query and document encoders. 
@@ -90,6 +90,7 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
         document: Tensor of rank 3, shape [N, D, ?].  
         document_length: Tensor of rank 1, shape [N]. Lengths of documents.  
+        query_affine_layer: Boolean. Whether to add an affine transformation to query encoding.  
 
     Returns:  
         A tuple containing  
@@ -105,12 +106,13 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
     )
     query_encoding = convert_gradient_to_tensor(tf.concat(query_fw_bw_encodings, 2))
     
-    query_encoding = tf.layers.dense(
-        query_encoding, 
-        query_encoding.get_shape()[2], 
-        activation=tf.tanh,
-        kernel_initializer=None
-    )
+    if query_affine_layer:
+        query_encoding = tf.layers.dense(
+            query_encoding, 
+            query_encoding.get_shape()[2], 
+            activation=tf.tanh,
+            kernel_initializer=None
+        )
 
     document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
         cell_fw = cell_fw,
@@ -170,7 +172,7 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         S^D = summary_d
         C^D = coattention_d
     
-    The dimenions' indices in Einstein summation notation are
+    The dimensions' indices in Einstein summation notation are
         n = batch dimension
         q = query dimension
         d = document dimension

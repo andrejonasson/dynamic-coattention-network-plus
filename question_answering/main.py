@@ -24,7 +24,7 @@ tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train/eval/shell/overf
 # Training hyperparameters
 tf.app.flags.DEFINE_integer("max_steps", 50000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
-tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.005, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("exponential_decay", False, "Whether to use exponential decay.")
 tf.app.flags.DEFINE_float("decay_steps", 4000, "Number of steps for learning rate to decay by decay_rate")
@@ -37,8 +37,8 @@ tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this nor
 # Model hyperparameters
 tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
 tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, 'gru'/'lstm'.")
-tf.app.flags.DEFINE_integer("embedding_size", 300, "Size of the pretrained vocabulary.")
-tf.app.flags.DEFINE_integer("state_size", 200, "Size of each model layer.")
+tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
+tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of inputs to RNN.")
