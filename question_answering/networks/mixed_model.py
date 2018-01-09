@@ -43,7 +43,7 @@ class Mixed:
                 ) 
                 return dropout_cell
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
-            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'])
+            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob']))
             self.start_logit, self.end_logit = decode(encoding)
             start_prob, end_prob = tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)
             self.answer = max_product_span(start_prob, end_prob, self.paragraph_length)

@@ -28,7 +28,10 @@ Batch size = 64
 Learning Rate = 0.005/0.001
 
 Achieves dev ~ F1 0.620 / EM 0.452
+
+Runs at ~0.45 step/sec on a GTX 1070 Ti
 ```
+
 Increasing embedding size and state size could improve performance further.
 
 To achieve higher performance at the cost of longer training while maintaining faster training time than DCN+, use the DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`.
