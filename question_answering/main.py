@@ -14,6 +14,7 @@ from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths
 from preprocessing.qa_data import UNK_ID, PAD_ID
 from networks.baseline_model import Baseline
 from networks.dcn_plus_model import DCNPlus
+from networks.mixed_model import Mixed
 from dataset import SquadDataset, pad_sequence
 
 logging.basicConfig(level=logging.INFO)
@@ -370,7 +371,7 @@ def main(_):
     elif FLAGS.model == 'baseline':
         model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'mixed':
-        model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
+        model = Mixed(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
         from networks.cat import Graph
         model = Graph(embeddings, is_training=is_training)
