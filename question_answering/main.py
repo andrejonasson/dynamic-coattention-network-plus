@@ -369,6 +369,8 @@ def main(_):
         model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'baseline':
         model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
+    elif FLAGS.model == 'mixed':
+        model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
         from networks.cat import Graph
         model = Graph(embeddings, is_training=is_training)
