@@ -3,32 +3,31 @@ from networks.modules import maybe_mask_affinity
 from networks.dcn_plus import query_document_encoder, coattention
 
 def encode(cell_factory, query, query_length, document, document_length):
-    """ Baseline Encoder that encodes questions and paragraphs into one representation.
+    """ Baseline Encoder that encodes questions and paragraphs into one representation.  
 
     It first encodes the question and paragraphs using a shared BiLSTM, then uses a 
     one layer coattention similar to Dynamic Coattention Network's [1]. Finally, concatenates 
     the initial encoding and the coattention to build a final encoding using
-    a separate BiLSTM.
+    a separate BiLSTM.  
 
     [1] Dynamic Coattention Networks For Question Answering, Xiong et al, 
         https://arxiv.org/abs/1611.01604
 
-    N = Batch size
-    P = Paragraph max length
-    Q = Question max length
-    H = state_size
-    R = Word embedding
+    N = Batch size  
+    P = Paragraph max length  
+    Q = Question max length  
+    H = state_size  
+    R = Word embedding  
 
-    Args:
-        cell_factory: Function of zero arguments returning an RNNCell.
-        query: A tensor of rank 3, shape [N, Q, R]. Word embeddings for each word in the question.
-        query_length: A tensor of rank 1, shape [N]. Lengths of questions.
-        document: A tensor of rank 3, shape [N, P, R]. Word embeddings for each word in the paragraphs.
-        document_length: A tensor of rank 1, shape [N]. Lengths of paragraphs.
+    Args:  
+        cell_factory: Function of zero arguments returning an RNNCell.  
+        query: A tensor of rank 3, shape [N, Q, R]. Word embeddings for each word in the question.  
+        query_length: A tensor of rank 1, shape [N]. Lengths of questions.  
+        document: A tensor of rank 3, shape [N, P, R]. Word embeddings for each word in the paragraphs.  
+        document_length: A tensor of rank 1, shape [N]. Lengths of paragraphs.  
     
-    Returns:
+    Returns:  
         Rank 3 tensor with shape [N, P, 2H].
-        
     """
 
     with tf.variable_scope('initial_encoder'):

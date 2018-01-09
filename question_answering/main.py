@@ -24,7 +24,7 @@ tf.app.flags.DEFINE_string('mode', 'train', 'Mode to use, train/eval/shell/overf
 # Training hyperparameters
 tf.app.flags.DEFINE_integer("max_steps", 50000, "Steps until training loop stops.")
 tf.app.flags.DEFINE_string("optimizer", "adam", "adam / sgd")
-tf.app.flags.DEFINE_float("learning_rate", 0.005, "Learning rate.")
+tf.app.flags.DEFINE_float("learning_rate", 0.001, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("exponential_decay", False, "Whether to use exponential decay.")
 tf.app.flags.DEFINE_float("decay_steps", 4000, "Number of steps for learning rate to decay by decay_rate")

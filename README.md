@@ -16,24 +16,22 @@ DCN+ encoder combines the question and passage using a dot-product based coatten
 For the implementation see `dcn_plus.py`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
 
 ### Baseline model
-Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder). The baseline model achieves ~0.46 F1 (limited to paragraphs below 300 words and questions below 25 words) on the development set after testing a few hyperparameters.
+Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder).
 
 Starting point for hyperparameters
 ```
-Steps = 15000
+Steps = ~20000/40000
 Word embedding size = 100
 Hidden state size = 100
 Optimizer = Adam
-Learning Rate = 0.01
-Decay = Exponential (Staircase)
-Decay Steps = 4500
-Decay Rate = 0.5
+Batch size = 64
+Learning Rate = 0.005/0.001
 
-Achieves dev F1 = ~0.46 (300 max length paragraph, 25 max length questions)
+Achieves dev ~ F1 0.620 / EM 0.452
 ```
-Increasing embedding size and state size should improve performance further.
+Increasing embedding size and state size could improve performance further.
 
-To achieve higher performance at the cost of longer training while maintaining faster training time than DCN+, use the DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`. Using the DCN+ encoder with a naive decoder achieves >0.60 Dev F1 with similar settings as baseline.
+To achieve higher performance at the cost of longer training while maintaining faster training time than DCN+, use the DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`.
 
 ### Todos
 - Character embeddings
