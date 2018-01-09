@@ -40,6 +40,7 @@ class DCNPlus:
                 return dropout_cell
             
             encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'])
             logits = decode(encoding, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
             last_iter_logit = logits.read(hparams['max_iter']-1)
             start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]

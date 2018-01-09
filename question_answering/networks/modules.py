@@ -106,17 +106,17 @@ def naive_decode(encoding):
     python_grad_func=lambda x, dy: tf.convert_to_tensor(dy),
     shape_func=lambda op: [op.inputs[0].get_shape()])
 def convert_gradient_to_tensor(x):
-  """Identity operation whose gradient is converted to a `Tensor`.
-  Currently, the gradient to `tf.concat` is particularly expensive to
-  compute if dy is an `IndexedSlices` (a lack of GPU implementation
-  forces the gradient operation onto CPU).  This situation occurs when
-  the output of the `tf.concat` is eventually passed to `tf.gather`.
-  It is sometimes faster to convert the gradient to a `Tensor`, so as
-  to get the cheaper gradient for `tf.concat`.  To do this, replace
-  `tf.concat(x)` with `convert_gradient_to_tensor(tf.concat(x))`.
-  Args:
+    """Identity operation whose gradient is converted to a `Tensor`.
+    Currently, the gradient to `tf.concat` is particularly expensive to
+    compute if dy is an `IndexedSlices` (a lack of GPU implementation
+    forces the gradient operation onto CPU).  This situation occurs when
+    the output of the `tf.concat` is eventually passed to `tf.gather`.
+    It is sometimes faster to convert the gradient to a `Tensor`, so as
+    to get the cheaper gradient for `tf.concat`.  To do this, replace
+    `tf.concat(x)` with `convert_gradient_to_tensor(tf.concat(x))`.
+    Args:
     x: A `Tensor`.
-  Returns:
+    Returns:
     The input `Tensor`.
-  """
-  return x
+    """
+    return x

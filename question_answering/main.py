@@ -44,6 +44,7 @@ tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trai
 tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
+tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
