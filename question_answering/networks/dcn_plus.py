@@ -45,6 +45,11 @@ def encode(cell_factory, query, query_length, document, document_length):
 
     with tf.variable_scope('initial_encoder'):
         query_encoding, document_encoding = query_document_encoder(cell_factory(), cell_factory(), query, query_length, document, document_length)
+        query_encoding = tf.layers.dense(
+            query_encoding, 
+            query_encoding.get_shape()[2], 
+            activation=tf.tanh
+        )
     
     with tf.variable_scope('coattention_1'):
         summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
@@ -77,11 +82,10 @@ def encode(cell_factory, query, query_length, document, document_length):
     return encoding
 
 
-def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length, query_affine_layer=True):
+def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length):
     """ DCN+ Query Document Encoder layer.
     
-    Forward and backward cells are shared between the bidirectional query and document encoders. 
-    The document encoding passes through an additional dense layer with tanh activation.
+    Forward and backward cells are shared between the bidirectional query and document encoders.  
 
     Args:  
         cell_fw: RNNCell for forward direction encoding.  
@@ -90,7 +94,6 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
         document: Tensor of rank 3, shape [N, D, ?].  
         document_length: Tensor of rank 1, shape [N]. Lengths of documents.  
-        query_affine_layer: Boolean. Whether to add an affine transformation to query encoding.  
 
     Returns:  
         A tuple containing  
@@ -105,14 +108,6 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
         sequence_length = query_length
     )
     query_encoding = convert_gradient_to_tensor(tf.concat(query_fw_bw_encodings, 2))
-    
-    if query_affine_layer:
-        query_encoding = tf.layers.dense(
-            query_encoding, 
-            query_encoding.get_shape()[2], 
-            activation=tf.tanh,
-            kernel_initializer=None
-        )
 
     document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
         cell_fw = cell_fw,

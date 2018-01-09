@@ -9,7 +9,7 @@ SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning 
 
 ### Dynamic Coattention Network Plus (DCN+)
 
-DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the Transformer Network. The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of a mixed objective the implementation uses cross entropy like the vanilla DCN.
+DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the attention in the Transformer Network, Vaswani et al (2017). The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of a mixed objective the implementation uses cross entropy like the vanilla DCN.
 
 <img src="encoder.png">
 
