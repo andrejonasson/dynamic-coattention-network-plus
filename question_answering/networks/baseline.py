@@ -32,6 +32,12 @@ def encode(cell_factory, query, query_length, document, document_length):
 
     with tf.variable_scope('initial_encoder'):
         query_encoding, document_encoding = query_document_encoder(cell_factory(), cell_factory(), query, query_length, document, document_length)
+        query_encoding = tf.layers.dense(
+            query_encoding, 
+            query_encoding.get_shape()[2], 
+            activation=tf.tanh,
+            #kernel_initializer=tf.initializers.identity()  # Not mentioned in paper, the assumption is that identity transform is closer to optimal than a noise matrix
+        )
     
     with tf.variable_scope('coattention'):
         _, _, coattention_d = coattention(query_encoding, query_length, document_encoding, document_length)
