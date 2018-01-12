@@ -12,9 +12,7 @@ import numpy as np
 from preprocessing.squad_preprocess import tokenize
 from utils import initialize_vocab, get_normalized_train_dir, f1, get_data_paths, exact_match
 from preprocessing.qa_data import UNK_ID, PAD_ID
-from networks.baseline_model import Baseline
-from networks.dcn_plus_model import DCNPlus
-from networks.mixed_model import Mixed
+from networks.dcn_model import DCN
 from dataset import SquadDataset, pad_sequence
 
 logging.basicConfig(level=logging.INFO)
@@ -367,12 +365,8 @@ def main(_):
     is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
     
     # Build model
-    if FLAGS.model == 'dcnplus':
-        model = DCNPlus(embeddings, FLAGS.__flags, is_training=is_training)
-    elif FLAGS.model == 'baseline':
-        model = Baseline(embeddings, FLAGS.__flags, is_training=is_training)
-    elif FLAGS.model == 'mixed':
-        model = Mixed(embeddings, FLAGS.__flags, is_training=is_training)
+    if FLAGS.model in ('baseline', 'mixed', 'dcnplus'):
+        model = DCN(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
         from networks.cat import Graph
         model = Graph(embeddings, is_training=is_training)

@@ -370,7 +370,7 @@ def maxout_layer(inputs, outputs, pool_size, keep_prob=1.0):
     return output
 
 
-def loss(logits, answer_span, max_iter):
+def dcn_loss(logits, answer_span, max_iter):
     """ Calulates cumulative loss over the iterations
 
     Args:  
