@@ -42,10 +42,11 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-tf.app.flags.DEFINE_float("input_keep_prob", 0.85, "Encoder: Fraction of units randomly kept of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")

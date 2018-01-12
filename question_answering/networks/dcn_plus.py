@@ -27,13 +27,14 @@ Shape notation:
 import tensorflow as tf
 from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor
 
-def encode(cell_factory, query, query_length, document, document_length):
+def encode(cell_factory, final_cell_factory, query, query_length, document, document_length):
     """ DCN+ deep residual coattention encoder.
     
     Encodes query document pairs into a document-query representations in document space.
 
     Args:  
-        cell_factory: Function of zero arguments returning an RNNCell.
+        cell_factory: Function of zero arguments returning an RNNCell.  
+        final_cell_factory: Function of zero arguments returning an RNNCell. Applied in final encoder layer.  
         query: Tensor of rank 3, shape [N, Q, R].  
         query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
         document: Tensor of rank 3, shape [N, D, R].  
@@ -73,8 +74,8 @@ def encode(cell_factory, query, query_length, document, document_length):
     with tf.variable_scope('final_encoder'):
         document_representation = convert_gradient_to_tensor(tf.concat(document_representations, 2))
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-            cell_fw = cell_factory(),
-            cell_bw = cell_factory(),
+            cell_fw = final_cell_factory(),
+            cell_bw = final_cell_factory(),
             dtype = tf.float32,
             inputs = document_representation,
             sequence_length = document_length,

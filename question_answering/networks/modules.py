@@ -120,3 +120,20 @@ def convert_gradient_to_tensor(x):
     The input `Tensor`.
     """
     return x
+
+
+def cell_factory(cell_type, state_size, is_training, input_keep_prob=1.0, output_keep_prob=1.0, state_keep_prob=1.0):
+    if cell_type.lower() == 'gru':
+        cell = tf.contrib.rnn.GRUCell(num_units=state_size)
+    elif cell_type.lower() == 'lstm':
+        cell = tf.contrib.rnn.LSTMCell(num_units=state_size)
+    input_keep_prob = maybe_dropout(input_keep_prob, is_training)
+    output_keep_prob = maybe_dropout(output_keep_prob, is_training)
+    state_keep_prob = maybe_dropout(state_keep_prob, is_training)
+    dropout_cell = tf.contrib.rnn.DropoutWrapper(
+        cell, 
+        input_keep_prob=input_keep_prob, 
+        output_keep_prob=output_keep_prob, 
+        state_keep_prob=state_keep_prob
+    )
+    return dropout_cell

@@ -3,7 +3,7 @@ import copy
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
-from networks.modules import maybe_dropout, max_product_span, naive_decode as decode
+from networks.modules import maybe_dropout, max_product_span, naive_decode as decode, cell_factory
 from networks.baseline import encode
 # TODO output from decoder + loss definition (_maybe_mask_score?)
 
@@ -26,22 +26,9 @@ class Baseline:
             p_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.paragraph)
         
         with tf.variable_scope('prediction'):
-            def cell_factory():
-                if hparams['cell'].lower() == 'gru':
-                    cell = tf.contrib.rnn.GRUCell(num_units=hparams['state_size'])
-                elif hparams['cell'].lower() == 'lstm':
-                    cell = tf.contrib.rnn.LSTMCell(num_units=hparams['state_size'])
-                input_keep_prob = maybe_dropout(hparams['input_keep_prob'], is_training)
-                output_keep_prob = maybe_dropout(hparams['output_keep_prob'], is_training)
-                state_keep_prob = maybe_dropout(hparams['state_keep_prob'], is_training)
-                dropout_cell = tf.contrib.rnn.DropoutWrapper(
-                    cell, 
-                    input_keep_prob=input_keep_prob, 
-                    output_keep_prob=output_keep_prob, 
-                    state_keep_prob=state_keep_prob
-                ) 
-                return dropout_cell
-            encoding = encode(cell_factory, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
+            final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
+            encoding = encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
             encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob']))
             self.start_logit, self.end_logit = decode(encoding)
             start_prob, end_prob = tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)
