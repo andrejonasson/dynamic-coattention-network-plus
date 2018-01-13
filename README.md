@@ -13,7 +13,7 @@ DCN+ encoder combines the question and passage using a dot-product based coatten
 
 <img src="encoder.png">
 
-For the implementation see `dcn_plus.py`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
+For the implementation see `networks.dcn_plus`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
 
 ### Baseline model
 Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder).
@@ -25,19 +25,16 @@ Word embedding size = 100
 Hidden state size = 100
 Optimizer = Adam
 Batch size = 64
+RNN Input Dropout = 15%
 Learning Rate = 0.005/0.001
 
 Achieves dev ~ F1 0.620 / EM 0.452
-
-Runs at ~0.45 step/sec on a GTX 1070 Ti
 ```
 
 Increasing embedding size and state size could improve performance further.
 
-To achieve higher performance at the cost of longer training while maintaining faster training time than DCN+, use the DCN+ encoder and a naive decoder by importing the DCN+ encoder into `baseline_model.py`.
-
 ### Todos
-- Character embeddings
+- Character embeddings (Char-CNN as in BiDAF [5])
 - Sparse mixture of experts
 - Compatability with official evaluation script
 - Figure out where and to what degree dropout should be applied
@@ -111,13 +108,15 @@ The project uses code from Stanford's CS224n to read and transform the original 
 
 ## References
 
-[1] Dynamic Coattention Networks For Question Answering, Xiong et al, https://arxiv.org/abs/1611.01604
+[1] Dynamic Coattention Networks For Question Answering, Xiong et al, https://arxiv.org/abs/1611.01604, 2016
 
-[2] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, Xiong et al, https://arxiv.org/abs/1711.00106
+[2] DCN+: Mixed Objective and Deep Residual Coattention for Question Answering, Xiong et al, https://arxiv.org/abs/1711.00106, 2017
 
-[3] SQuAD: 100,000+ Questions for Machine Comprehension of Text, Rajpurkar et al, https://arxiv.org/abs/1606.05250
+[3] SQuAD: 100,000+ Questions for Machine Comprehension of Text, Rajpurkar et al, https://arxiv.org/abs/1606.05250, 2016
 
 [4] https://rajpurkar.github.io/SQuAD-explorer/
+
+[5] Bidirectional Attention Flow for Machine Comprehension, Seo et al, https://arxiv.org/abs/1611.01603, 2016
 
 ## Author
 André Jonasson / [@andrejonasson](https://github.com/andrejonasson)
