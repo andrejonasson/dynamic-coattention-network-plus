@@ -23,7 +23,7 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     return tf.where(score_mask, affinity, affinity_mask_values)
 
 
-def maybe_dropout(keep_prob, is_training=False):
+def maybe_dropout(keep_prob, is_training):
     return tf.cond(tf.convert_to_tensor(is_training), lambda: keep_prob, lambda: 1.0)
 
 

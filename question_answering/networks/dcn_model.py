@@ -32,7 +32,7 @@ class DCN:
         if hparams['model'] == 'baseline':
             encode = baseline_encode
         encoding = encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
-        encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob']))
+        encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
         
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
