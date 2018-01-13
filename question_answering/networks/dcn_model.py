@@ -65,8 +65,8 @@ class DCN:
                 last_loss = tf.reduce_mean(start_loss + end_loss)
             tf.summary.scalar('cross_entropy_last_iter', last_loss)
 
+        global_step = tf.train.get_or_create_global_step()
         with tf.variable_scope('train'):
-            global_step = tf.train.get_or_create_global_step()
             if hparams['exponential_decay']:
                 lr = tf.train.exponential_decay(learning_rate=hparams['learning_rate'], 
                                                 global_step=global_step, 
