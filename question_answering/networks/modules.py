@@ -137,3 +137,57 @@ def cell_factory(cell_type, state_size, is_training, input_keep_prob=1.0, output
         state_keep_prob=state_keep_prob
     )
     return dropout_cell
+
+
+def char_cnn_word_vectors(chars, embeddings, filter_widths, num_filters):
+    """ Character CNN word vectors  
+
+    Constructs a word vector from character embeddings by running a CNN over the word's characters
+    then max pooling over characters. Each filter convolves the full depth of the character embedding and 
+    `filter_size` many characters. The total number of filters applied will equal to the output word vectors
+    size.  
+
+    Args:  
+        chars: Integer Tensor, [N, X, C]. Character indices.  
+        embeddings: Tensor. Character embeddings.
+        filter_widths: List of convolution filter widths. Width in number of characters.  
+        num_filters: List of number of filters per filter width. Same length as `filter_widths`.
+        Sum of num_filters should equal word vector size.  
+
+    Returns:  
+        Tensor, float, shape [N, X, E]. Character-based Word embeddings.
+    """
+    # hparams needed: W: max word size, S: max sentence length, M: max number of sentences, E: embedding_size
+    # chars = [N, D, W]       or might need [N, M, S, W]
+    
+    chars = tf.nn.embedding_lookup(chars, embeddings)  # [N, X, C, E_C]
+
+    convs = []
+    for filter_width, filters in zip(filter_widths, num_filters):
+        conv = tf.layers.conv2d(chars, filters, (1, filter_width))  # [N, X, C, F_i]
+        convs.append(conv)
+
+    convs = tf.concat(convs, axis=3)  # [N, X, C, E] because Sum F_i = E, the word vector size
+    max_pool_across_chars = tf.reduce_max(convs, 2)
+    word_vectors = tf.squeeze(max_pool_across_chars)
+    return word_vectors  # [N, X, E]
+
+
+def batch_of_words_to_char_indices(batch_word_indices, word_rev_vocab, char_vocab, max_word_length):
+    """ Takes batch of sequence of word indices and returns character indices for each word index """
+    batch_char_indices = []
+    for word_indices in batch_word_indices:
+        batch_char_indices.append([word_index_to_padded_char_indices(word_idx, word_rev_vocab, char_vocab, max_word_length) for word_idx in word_indices])
+    return batch_char_indices  # [N, W, C]
+
+
+def word_index_to_padded_char_indices(word_index, word_rev_vocab, char_vocab, max_word_length):
+    """ Takes one word index, converts into a vector of char indices that's been padded to `max_word_length` length"""
+    from preprocessing.qa_data import UNK_ID, PAD_ID, SOS_ID
+    if word_index in (UNK_ID, PAD_ID, SOS_ID):
+        return [0] * max_word_length
+    word = word_rev_vocab[word_index]
+    char_indices = [char_vocab[ch] for ch in word]
+    padding = max_word_length - len(char_indices)
+    padded_char_indices = char_indices.extend([0] * padding)
+    return padded_char_indices

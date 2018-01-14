@@ -3,7 +3,7 @@ import copy
 import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
-from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory
+from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory, char_cnn_word_vectors
 from networks.dcn_plus import encode, decode, dcn_loss
 from networks.baseline import encode as baseline_encode
 
@@ -19,11 +19,26 @@ class DCN:
         self.paragraph_length = tf.placeholder(tf.int32, (None,), name='paragraph_length')
         self.answer_span = tf.placeholder(tf.int32, (None, 2), name='answer_span')
 
+        # Word embeddings
         with tf.variable_scope('embeddings'):
             embedded_vocab = tf.Variable(self.pretrained_embeddings, name='shared_embedding', trainable=hparams['trainable_embeddings'], dtype=tf.float32)  
             q_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.question)
             p_embeddings = tf.nn.embedding_lookup(embedded_vocab, self.paragraph)
         
+        # Character embeddings to word vectors
+        if hparams['use_char_cnn']:
+            self.question_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_size']), name='question_chars')
+            self.paragraph_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_size']), name='paragraph_chars')
+        
+            with tf.variable_scope('char_cnn', reuse=tf.AUTO_REUSE):
+                filter_widths = [5]  # TODO add as comma separated FLAGS argument
+                num_filters = [100]  # TODO add as comma separated FLAGS argument
+                char_embeddings = tf.get_variable('char_embeddings', shape=[self.hparams['char_vocab_size'], self.hparams['embedding_size']], dtype=tf.float32)
+                q_word_vectors = char_cnn_word_vectors(self.question_chars, char_embeddings, filter_widths, num_filters)
+                p_word_vectors = char_cnn_word_vectors(self.paragraph_chars, char_embeddings, filter_widths, num_filters)  # reusing filters
+                q_embeddings = tf.concat([q_embeddings, q_word_vectors], axis=2)
+                p_embeddings = tf.concat([p_embeddings, p_word_vectors], axis=2)
+
         # Setup RNN Cells
         cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
         final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
