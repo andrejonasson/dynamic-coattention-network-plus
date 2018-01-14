@@ -27,13 +27,13 @@ class DCN:
         
         # Character embeddings to word vectors
         if hparams['use_char_cnn']:
-            self.question_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_size']), name='question_chars')
-            self.paragraph_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_size']), name='paragraph_chars')
+            self.question_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_length']), name='question_chars')
+            self.paragraph_chars = tf.placeholder(tf.int32, (None, None, self.hparams['max_word_length']), name='paragraph_chars')
         
             with tf.variable_scope('char_cnn', reuse=tf.AUTO_REUSE):
                 filter_widths = [5]  # TODO add as comma separated FLAGS argument
                 num_filters = [100]  # TODO add as comma separated FLAGS argument
-                char_embeddings = tf.get_variable('char_embeddings', shape=[self.hparams['char_vocab_size'], self.hparams['embedding_size']], dtype=tf.float32)
+                char_embeddings = tf.get_variable('char_embeddings', shape=[self.hparams['char_vocab_size'], self.hparams['char_embedding_size']], dtype=tf.float32)
                 q_word_vectors = char_cnn_word_vectors(self.question_chars, char_embeddings, filter_widths, num_filters)
                 p_word_vectors = char_cnn_word_vectors(self.paragraph_chars, char_embeddings, filter_widths, num_filters)  # reusing filters
                 q_embeddings = tf.concat([q_embeddings, q_word_vectors], axis=2)

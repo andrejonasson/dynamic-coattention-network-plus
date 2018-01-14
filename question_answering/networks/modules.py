@@ -182,7 +182,7 @@ def batch_of_words_to_char_indices(batch_word_indices, word_rev_vocab, char_voca
 
 
 def word_index_to_padded_char_indices(word_index, word_rev_vocab, char_vocab, max_word_length):
-    """ Takes one word index, converts into a vector of char indices that's been padded to `max_word_length` length"""
+    """ Takes one word index, converts it into a vector of char indices that has been padded to `max_word_length` length"""
     from preprocessing.qa_data import UNK_ID, PAD_ID, SOS_ID
     if word_index in (UNK_ID, PAD_ID, SOS_ID):
         return [0] * max_word_length

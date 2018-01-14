@@ -32,6 +32,7 @@ tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
 
+
 # Model hyperparameters
 tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
 tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, 'gru'/'lstm'.")
@@ -49,6 +50,11 @@ tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of un
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
+
+# Character embeddings
+tf.app.flags.DEFINE_integer("char_vocab_size", 4, "Number of characters in vocabulary.")  # TODO will be overridden by loaded vocab, probably not needed
+tf.app.flags.DEFINE_integer("char_embedding_size", 8, "Size of character embeddings.")
+tf.app.flags.DEFINE_integer("max_word_length", 15, "Maximum number of characters per word.")
 
 # Data hyperparameters
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
