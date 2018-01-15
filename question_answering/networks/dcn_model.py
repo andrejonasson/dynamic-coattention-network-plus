@@ -44,10 +44,12 @@ class DCN:
         final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
 
         # Setup Encoders
-        if hparams['model'] == 'baseline':
-            encode = baseline_encode
-        encoding = encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
-        encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
+        with tf.variable_scope('prediction'):
+            self.encode = encode
+            if hparams['model'] == 'baseline':
+                self.encode = baseline_encode
+            encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length)
+            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
         
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
@@ -80,7 +82,7 @@ class DCN:
                 last_loss = tf.reduce_mean(start_loss + end_loss)
             tf.summary.scalar('cross_entropy_last_iter', last_loss)
 
-        global_step = tf.train.get_or_create_global_step()
+        global_step = tf.train.get_or_create_global_step()  # move back outside scope
         with tf.variable_scope('train'):
             if hparams['exponential_decay']:
                 lr = tf.train.exponential_decay(learning_rate=hparams['learning_rate'], 

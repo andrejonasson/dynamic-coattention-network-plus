@@ -57,6 +57,7 @@ tf.app.flags.DEFINE_integer("char_embedding_size", 8, "Size of character embeddi
 tf.app.flags.DEFINE_integer("max_word_length", 15, "Maximum number of characters per word.")
 
 # Data hyperparameters
+tf.app.flags.DEFINE_integer("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
 tf.app.flags.DEFINE_integer("max_paragraph_length", 400, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
