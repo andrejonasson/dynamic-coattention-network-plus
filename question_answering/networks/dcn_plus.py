@@ -27,7 +27,7 @@ Shape notation:
 import tensorflow as tf
 from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor
 
-def encode(cell_factory, final_cell_factory, query, query_length, document, document_length):
+def encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0):
     """ DCN+ deep residual coattention encoder.
     
     Encodes query document pairs into a document-query representations in document space.
@@ -46,6 +46,7 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
 
     with tf.variable_scope('initial_encoder'):
         query_encoding, document_encoding = query_document_encoder(cell_factory(), cell_factory(), query, query_length, document, document_length)
+        query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 

@@ -44,20 +44,20 @@ tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units ra
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
-tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
 
-# Character embeddings
+# Character embeddings  (NOTE: INPUT PROCESSING NOT IMPLEMENTED YET)
+tf.app.flags.DEFINE_integer("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
 tf.app.flags.DEFINE_integer("char_vocab_size", 4, "Number of characters in vocabulary.")  # TODO will be overridden by loaded vocab, probably not needed
 tf.app.flags.DEFINE_integer("char_embedding_size", 8, "Size of character embeddings.")
 tf.app.flags.DEFINE_integer("max_word_length", 15, "Maximum number of characters per word.")
 
 # Data hyperparameters
-tf.app.flags.DEFINE_integer("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
 tf.app.flags.DEFINE_integer("max_question_length", 25, "Maximum question length.")
 tf.app.flags.DEFINE_integer("max_paragraph_length", 400, "Maximum paragraph length and the output size of your model.")
 tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training.")
@@ -69,7 +69,7 @@ tf.app.flags.DEFINE_integer("eval_batches", 80, "Number of batches of size batch
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
 tf.app.flags.DEFINE_string("data_dir", os.path.join("..", "data", "squad"), "SQuAD directory (default ../data/squad)") 
 tf.app.flags.DEFINE_string("train_dir", os.path.join("..", "checkpoints"), "Training directory to save the model parameters (default: ../checkpoints).")
-tf.app.flags.DEFINE_integer("print_every", 50, "How many iterations to do per print.")
+tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("vocab_path", os.path.join("..", "data", "squad", "vocab.dat"), "Path to vocab file (default: ../data/squad/vocab.dat)")
 tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embedding (default: ../data/squad/glove.trimmed.{embedding_size}.npz)")
 
