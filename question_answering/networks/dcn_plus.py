@@ -45,7 +45,10 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
     """
 
     with tf.variable_scope('initial_encoder'):
-        query_encoding, document_encoding = query_document_encoder(cell_factory(), cell_factory(), query, query_length, document, document_length)
+        # query = tf.nn.dropout(query, keep_prob)
+        # paragraph = tf.nn.dropout(paragraph, keep_prob)
+        initial = cell_factory()
+        query_encoding, document_encoding = query_document_encoder(initial, initial, query, query_length, document, document_length)
         query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
@@ -55,12 +58,19 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
         )
     
     with tf.variable_scope('coattention_1'):
+        # query_encoding = tf.nn.dropout(query_encoding, keep_prob)
+        # paragraph_encoding = tf.nn.dropout(paragraph_encoding, keep_prob)
         summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     with tf.variable_scope('summary_encoder'):
-        summary_q_encoding, summary_d_encoding = query_document_encoder(cell_factory(), cell_factory(), summary_q_1, query_length, summary_d_1, document_length)
+        # summary_q_1 = tf.nn.dropout(summary_q_1, keep_prob)
+        # summary_d_1 = tf.nn.dropout(summary_d_1, keep_prob)
+        summary = cell_factory()
+        summary_q_encoding, summary_d_encoding = query_document_encoder(summary, summary, summary_q_1, query_length, summary_d_1, document_length)
     
     with tf.variable_scope('coattention_2'):
+        # summary_q_encoding = tf.nn.dropout(summary_q_encoding, keep_prob)
+        # summary_d_encoding = tf.nn.dropout(summary_d_encoding, keep_prob)
         _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)
 
     document_representations = [
@@ -74,9 +84,11 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
 
     with tf.variable_scope('final_encoder'):
         document_representation = convert_gradient_to_tensor(tf.concat(document_representations, 2))
+        # document_representation = tf.nn.dropout(document_representation, keep_prob)
+        final = final_cell_factory()
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
-            cell_fw = final_cell_factory(),
-            cell_bw = final_cell_factory(),
+            cell_fw = final,
+            cell_bw = final,
             dtype = tf.float32,
             inputs = document_representation,
             sequence_length = document_length,

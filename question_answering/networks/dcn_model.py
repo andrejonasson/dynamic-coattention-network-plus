@@ -46,7 +46,7 @@ class DCN:
         # Setup Encoders
         with tf.variable_scope('prediction'):
             self.encode = encode
-            if hparams['model'] == 'baseline':
+            if hparams['model'] in ('baseline', 'dcn'):
                 self.encode = baseline_encode
             encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
             encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
@@ -65,7 +65,7 @@ class DCN:
                 loss_per_example = start_loss + end_loss
                 self.loss = tf.reduce_mean(loss_per_example)
 
-        elif hparams['model'] == 'dcnplus':
+        elif hparams['model'] in ('dcn', 'dcnplus'):
             with tf.variable_scope('prediction'):
                 logits = decode(encoding, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
                 last_iter_logit = logits.read(hparams['max_iter']-1)

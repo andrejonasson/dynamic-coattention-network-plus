@@ -30,7 +30,7 @@ tf.app.flags.DEFINE_boolean("staircase", True, "Whether staircase decay (use of 
 tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
-tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
+tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
 
 
 # Model hyperparameters
@@ -40,11 +40,11 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.75, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
-tf.app.flags.DEFINE_float("final_input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.75, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -255,7 +255,7 @@ def do_train(model, train):
     losses = []
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    # Training session  
+    # Training session
     with tf.train.MonitoredTrainingSession(hooks=hooks,
                                            checkpoint_dir=checkpoint_dir, 
                                            save_summaries_steps=20,
