@@ -48,7 +48,7 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
         # query = tf.nn.dropout(query, keep_prob)
         # paragraph = tf.nn.dropout(paragraph, keep_prob)
         initial = cell_factory()
-        query_encoding, document_encoding = query_document_encoder(initial, initial, query, query_length, document, document_length)
+        query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length)
         query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
@@ -66,7 +66,7 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
         # summary_q_1 = tf.nn.dropout(summary_q_1, keep_prob)
         # summary_d_1 = tf.nn.dropout(summary_d_1, keep_prob)
         summary = cell_factory()
-        summary_q_encoding, summary_d_encoding = query_document_encoder(summary, summary, summary_q_1, query_length, summary_d_1, document_length)
+        summary_q_encoding, summary_d_encoding = query_document_encoder(summary, summary_q_1, query_length, summary_d_1, document_length)
     
     with tf.variable_scope('coattention_2'):
         # summary_q_encoding = tf.nn.dropout(summary_q_encoding, keep_prob)
@@ -97,14 +97,13 @@ def encode(cell_factory, final_cell_factory, query, query_length, document, docu
     return encoding
 
 
-def query_document_encoder(cell_fw, cell_bw, query, query_length, document, document_length):
+def query_document_encoder(cell, query, query_length, document, document_length, bidirectional=True):
     """ DCN+ Query Document Encoder layer.
     
     Forward and backward cells are shared between the bidirectional query and document encoders.  
 
     Args:  
-        cell_fw: RNNCell for forward direction encoding.  
-        cell_bw: RNNCell for backward direction encoding.  
+        cell: RNNCell for encoding.   
         query: Tensor of rank 3, shape [N, Q, ?].  
         query_length: Tensor of rank 1, shape [N]. Lengths of queries.  
         document: Tensor of rank 3, shape [N, D, ?].  
@@ -115,25 +114,39 @@ def query_document_encoder(cell_fw, cell_bw, query, query_length, document, docu
             encoding of query, shape [N, Q, 2H].  
             encoding of document, shape [N, D, 2H].
     """
-    query_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
-        cell_fw = cell_fw,
-        cell_bw = cell_bw,
-        dtype = tf.float32,
-        inputs = query,
-        sequence_length = query_length
-    )
-    query_encoding = convert_gradient_to_tensor(tf.concat(query_fw_bw_encodings, 2))
+    
+    if bidirectional:
+        query_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
+            cell_fw = cell,
+            cell_bw = cell,
+            dtype = tf.float32,
+            inputs = query,
+            sequence_length = query_length
+        )
+        query_encoding = convert_gradient_to_tensor(tf.concat(query_fw_bw_encodings, 2))
 
-    document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
-        cell_fw = cell_fw,
-        cell_bw = cell_bw,
-        dtype = tf.float32,
-        inputs = document,
-        sequence_length = document_length
-    )
-        
-    document_encoding = convert_gradient_to_tensor(tf.concat(document_fw_bw_encodings, 2))
+        document_fw_bw_encodings, _ = tf.nn.bidirectional_dynamic_rnn(
+            cell_fw = cell,
+            cell_bw = cell,
+            dtype = tf.float32,
+            inputs = document,
+            sequence_length = document_length
+        )    
+        document_encoding = convert_gradient_to_tensor(tf.concat(document_fw_bw_encodings, 2))
+    else:
+        query_encoding, _ = tf.nn.dynamic_rnn(
+            cell = cell,
+            dtype = tf.float32,
+            inputs = query,
+            sequence_length = query_length
+        )
 
+        document_encoding, _ = tf.nn.dynamic_rnn(
+            cell = cell,
+            dtype = tf.float32,
+            inputs = document,
+            sequence_length = document_length
+        )
     return query_encoding, document_encoding
 
 
