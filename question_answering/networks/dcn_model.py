@@ -56,8 +56,8 @@ class DCN:
 
         # Setup Encoders
         with tf.variable_scope('prediction'):
-            if hparams['model'] =='baseline':
-                self.encode = baseline_encode
+            if hparams['model'] == 'baseline':
+                self.encode = dcn_encode#baseline_encode
             elif hparams['model'] == 'dcn':
                 self.encode = dcn_encode
             else:

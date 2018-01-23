@@ -92,13 +92,13 @@ def naive_decode(encoding, state_size):
     """
     
     with tf.variable_scope('decode_start'):
-        start_logit = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
-        start_logit = tf.layers.dense(encoding, 1, activation=tf.nn.relu)
+        start_relu = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
+        start_logit = tf.layers.dense(start_relu, 1)
         start_logit = tf.squeeze(start_logit)
 
     with tf.variable_scope('decode_end'):
-        end_logit = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
-        end_logit = tf.layers.dense(encoding, 1, activation=tf.nn.relu)
+        end_relu = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
+        end_logit = tf.layers.dense(end_relu, 1)
         end_logit = tf.squeeze(end_logit)
     
     return start_logit, end_logit
