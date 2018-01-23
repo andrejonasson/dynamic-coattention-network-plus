@@ -272,7 +272,7 @@ def do_train(model, train):
             losses.append(result['loss'])
             
             # Moving Average loss
-            if step == 1 or step == 10 or step == 100 or step % FLAGS.print_every == 0:
+            if step == 1 or step == 10 or step == 50 or step == 100 or step % FLAGS.print_every == 0:
                 mean_loss = sum(losses)/len(losses)
                 losses = []
                 print(f'Step {step}, loss {mean_loss:.2f}')

@@ -399,7 +399,7 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
             new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
             logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [prev_logit, new_logit])  # TODO test that correct
             return logit
-        
+
         for i in range(max_iter):
             if i > 1:
                 tf.summary.scalar(f'not_settled_iter_{i+1}', tf.reduce_sum(tf.cast(not_settled, tf.float32)))
@@ -468,6 +468,25 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
     
     return tf.stack([alpha, beta], axis=2)
     
+
+def two_layer_mlp(inputs, hidden_size, keep_prob=1.0):
+    """ Two layer MLP network.
+
+    Args:  
+        inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to network.  
+        hidden_size: Scalar integer. Hidden units of highway maxout network.  
+        keep_prob: Scalar float. Input dropout keep probability for maxout layers.  
+
+    Returns:  
+        Tensor of rank 2, shape [N, D]. Logits.
+    """
+    
+    inputs = tf.nn.dropout(inputs, keep_prob)
+    layer1 = tf.layers.dense(inputs, state_size, activation=tf.nn.relu)
+    output = tf.layers.dense(layer1, 1)
+    output = tf.squeeze(output)
+    return output
+
 
 def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
     """ Highway maxout network.
@@ -540,4 +559,3 @@ def dcn_loss(logits, answer_span, max_iter):
     loss_per_example = tf.reduce_mean(start_loss + end_loss, axis=1)
     loss = tf.reduce_mean(loss_per_example)
     return loss
-
