@@ -30,12 +30,12 @@ tf.app.flags.DEFINE_boolean("staircase", True, "Whether staircase decay (use of 
 tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
-tf.app.flags.DEFINE_float("max_gradient_norm", 5.0, "Clip gradients to this norm.")
+tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
 
 
 # Model hyperparameters
-tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, dcnplus / baseline")
-tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, 'gru'/'lstm'.")
+tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, baseline / mixed / dcn / dcnplus")
+tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, gru / lstm")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
@@ -255,7 +255,7 @@ def do_train(model, train):
     losses = []
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    # Training session
+    # Training session  
     with tf.train.MonitoredTrainingSession(hooks=hooks,
                                            checkpoint_dir=checkpoint_dir, 
                                            save_summaries_steps=20,
@@ -371,7 +371,7 @@ def main(_):
     is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
     
     # Build model
-    if FLAGS.model in ('baseline', 'mixed', 'dcnplus'):
+    if FLAGS.model in ('baseline', 'mixed', 'dcnplus', 'dcn'):
         model = DCN(embeddings, FLAGS.__flags, is_training=is_training)
     elif FLAGS.model == 'cat':
         from networks.cat import Graph

@@ -4,10 +4,21 @@ import tensorflow as tf
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
 from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory, char_cnn_word_vectors
-from networks.dcn_plus import encode, decode, dcn_loss
-from networks.baseline import encode as baseline_encode
+from networks.dcn_plus import baseline_encode, dcn_encode, dcnplus_encode, dcn_decode, dcn_loss
 
 class DCN:
+    """ Builds graph for DCN-type models  
+    
+    Baseline model - DCN-like Encoder with naive decoder  
+    Mixed model - DCN+ Encoder with naive decoder  
+    DCN - DCN Encoder with DCN decoder  
+    DCN+ - DCN+ Encoder with DCN decoder  
+
+    Args:  
+        pretrained_embeddings: Pretrained embeddings.  
+        hparams: dictionary of all hyperparameters for models.  
+        is_training: Boolean. Whether model is training or not.  
+    """
     def __init__(self, pretrained_embeddings, hparams, is_training=False):
         self.hparams = copy.copy(hparams)
         self.pretrained_embeddings = pretrained_embeddings
@@ -45,13 +56,16 @@ class DCN:
 
         # Setup Encoders
         with tf.variable_scope('prediction'):
-            self.encode = encode
-            if hparams['model'] in ('baseline', 'dcn'):
+            if hparams['model'] =='baseline':
                 self.encode = baseline_encode
+            elif hparams['model'] == 'dcn':
+                self.encode = dcn_encode
+            else:
+                self.encode = dcnplus_encode
             encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
             encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
         
-        # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn_plus
+        # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn/dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
             with tf.variable_scope('prediction'):
                 start_logit, end_logit = naive_decode(encoding)
@@ -67,7 +81,7 @@ class DCN:
 
         elif hparams['model'] in ('dcn', 'dcnplus'):
             with tf.variable_scope('prediction'):
-                logits = decode(encoding, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
+                logits = dcn_decode(encoding, self.paragraph_length, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
                 last_iter_logit = logits.read(hparams['max_iter']-1)
                 start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
                 self.answer = (tf.argmax(start_logit, axis=1, name='answer_start'), tf.argmax(end_logit, axis=1, name='answer_end'))
@@ -82,7 +96,7 @@ class DCN:
                 last_loss = tf.reduce_mean(start_loss + end_loss)
             tf.summary.scalar('cross_entropy_last_iter', last_loss)
 
-        global_step = tf.train.get_or_create_global_step()  # move back outside scope
+        global_step = tf.train.get_or_create_global_step()
         with tf.variable_scope('train'):
             if hparams['exponential_decay']:
                 lr = tf.train.exponential_decay(learning_rate=hparams['learning_rate'], 
