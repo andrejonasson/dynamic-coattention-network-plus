@@ -236,46 +236,72 @@ def multibatch_prediction_truth(session, model, data, num_batches=None, random=F
     return prediction, truth
 
 
-def do_train(model, train):
+def do_train(model, train, dev):
     """ Trains a model
 
     Args:  
         model: QA model that has an instance variable 'answer' that returns answer span and takes placeholders  
         question, question_length, paragraph, paragraph_length  
-        train: Training set
+        train: Training set  
+        dev: Development set
     """
-    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
-    
-    hooks = [
-        tf.train.StopAtStepHook(last_step=FLAGS.max_steps),
-        tf.train.NanTensorHook(model.loss)
-    ]
     parameter_space_size()
 
+    checkpoint_dir = os.path.join(FLAGS.train_dir, FLAGS.model_name)
+    summary_writer = tf.summary.FileWriter(checkpoint_dir)
+
     losses = []
+    init = tf.global_variables_initializer()
+    summary = tf.summary.merge_all()
+    saver = tf.train.Saver()
+
+    # Training session  
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
-    # Training session  
-    with tf.train.MonitoredTrainingSession(hooks=hooks,
-                                           checkpoint_dir=checkpoint_dir, 
-                                           save_summaries_steps=20,
-                                           config=config) as session:
-        while not session.should_stop():
-            feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size))
+    with tf.Session(config=config) as sess:
+        sess.run(init)
+        latest_ckpt = tf.train.latest_checkpoint(checkpoint_dir)
+        if latest_ckpt:
+            saver.restore(sess, latest_ckpt)
+
+        for i in itertools.count():
+            feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size), is_training=True)
             fetch_dict = {
                 'step': tf.train.get_global_step(),
                 'loss': model.loss,
                 'train': model.train
             }
-            result = session.run(fetch_dict, feed_dict)
+            if i > 0 and (step+1) % 20 == 0:
+                fetch_dict['summary'] = summary
+            result = sess.run(fetch_dict, feed_dict)
             step = result['step']
-            losses.append(result['loss'])
+            if 'summary' in result:
+                summary_writer.add_summary(result['summary'], step)
+            
+            if step > 0 and (step==50 or (step % 300 == 0)):
+                saver.save(sess, os.path.join(checkpoint_dir, 'model'), step)
             
             # Moving Average loss
+            losses.append(result['loss'])
             if step == 1 or step == 10 or step == 50 or step == 100 or step % FLAGS.print_every == 0:
                 mean_loss = sum(losses)/len(losses)
                 losses = []
                 print(f'Step {step}, loss {mean_loss:.2f}')
+
+            # Train/Dev Evaluation
+            if step != 0 and (step == 200 or step % 600 == 0):
+                feed_dict = model.fill_feed_dict(*dev.get_batch(FLAGS.batch_size))
+                fetch_dict = {'loss': model.loss}
+                dev_loss = sess.run(fetch_dict, feed_dict)['loss']
+                start_evaluate = timer()
+                prediction, truth = multibatch_prediction_truth(sess, model, dev, num_batches=20, random=True)
+                dev_f1 = f1(prediction, truth)
+                dev_em = exact_match(prediction, truth)
+                summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='F1_DEV', simple_value=dev_f1)]), step)
+                print(f'Step {step}, Dev loss {dev_loss:.2f}, Dev F1/EM: {dev_f1:.3f}/{dev_em:.3f}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
+            
+            if step == FLAGS.max_steps:
+                break
 
 
 def save_flags():
@@ -313,7 +339,7 @@ def test_overfit(model, train):
         for epoch in range(epochs):
             epoch_start = timer()
             for step in range(steps_per_epoch):
-                feed_dict = model.fill_feed_dict(*train[:test_size])
+                feed_dict = model.fill_feed_dict(*train[:test_size], is_training=True)
                 fetch_dict = {
                     'step': tf.train.get_global_step(),
                     'loss': model.loss,
@@ -368,21 +394,19 @@ def main(_):
     embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
     embeddings = np.load(embed_path)['glove']  # 115373
     
-    is_training = (FLAGS.mode == 'train' or FLAGS.mode == 'overfit')
-    
     # Build model
     if FLAGS.model in ('baseline', 'mixed', 'dcnplus', 'dcn'):
-        model = DCN(embeddings, FLAGS.__flags, is_training=is_training)
+        model = DCN(embeddings, FLAGS.__flags)
     elif FLAGS.model == 'cat':
         from networks.cat import Graph
-        model = Graph(embeddings, is_training=is_training)
+        model = Graph(embeddings)
     else:
         raise ValueError(f'{FLAGS.model} is not a supported model')
     
     # Run mode
     if FLAGS.mode == 'train':
         save_flags()
-        do_train(model, train)
+        do_train(model, train, dev)
     elif FLAGS.mode == 'eval':
         do_eval(model, train, dev)
     elif FLAGS.mode == 'overfit':

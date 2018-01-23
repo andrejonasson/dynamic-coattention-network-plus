@@ -19,7 +19,7 @@ class DCN:
         hparams: dictionary of all hyperparameters for models.  
         is_training: Boolean. Whether model is training or not.  
     """
-    def __init__(self, pretrained_embeddings, hparams, is_training=False):
+    def __init__(self, pretrained_embeddings, hparams):
         self.hparams = copy.copy(hparams)
         self.pretrained_embeddings = pretrained_embeddings
 
@@ -29,6 +29,7 @@ class DCN:
         self.paragraph = tf.placeholder(tf.int32, (None, None), name='paragraph')
         self.paragraph_length = tf.placeholder(tf.int32, (None,), name='paragraph_length')
         self.answer_span = tf.placeholder(tf.int32, (None, 2), name='answer_span')
+        self.is_training = tf.placeholder(tf.bool, shape=(), name='is_training')
 
         # Word embeddings
         with tf.variable_scope('embeddings'):
@@ -51,19 +52,19 @@ class DCN:
                 p_embeddings = tf.concat([p_embeddings, p_word_vectors], axis=2)
 
         # Setup RNN Cells
-        cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
-        final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
+        cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], self.is_training, hparams['input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
+        final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], self.is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
 
         # Setup Encoders
         with tf.variable_scope('prediction'):
             if hparams['model'] == 'baseline':
-                self.encode = dcn_encode#baseline_encode
+                self.encode = baseline_encode
             elif hparams['model'] == 'dcn':
                 self.encode = dcn_encode
             else:
                 self.encode = dcnplus_encode
-            encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
-            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], is_training))
+            encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], self.is_training))
+            encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], self.is_training))
         
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn/dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
@@ -81,7 +82,7 @@ class DCN:
 
         elif hparams['model'] in ('dcn', 'dcnplus'):
             with tf.variable_scope('prediction'):
-                logits = dcn_decode(encoding, self.paragraph_length, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], is_training))
+                logits = dcn_decode(encoding, self.paragraph_length, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], self.is_training))
                 last_iter_logit = logits.read(hparams['max_iter']-1)
                 start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
                 self.answer = (tf.argmax(start_logit, axis=1, name='answer_start'), tf.argmax(end_logit, axis=1, name='answer_end'))
@@ -118,12 +119,13 @@ class DCN:
         tf.summary.scalar('grad_norm', grad_norm)
     
 
-    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None):
+    def fill_feed_dict(self, question, paragraph, question_length, paragraph_length, answer_span=None, is_training=False):
         feed_dict = {
             self.question: question,
             self.paragraph: paragraph,
             self.question_length: question_length, 
             self.paragraph_length: paragraph_length,
+            self.is_training: is_training
         }
 
         if answer_span is not None:

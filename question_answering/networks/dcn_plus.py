@@ -119,7 +119,7 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
     with tf.variable_scope('initial_encoder'):
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length, bidirectional=False)
-        #query_encoding = tf.nn.dropout(query_encoding, keep_prob)
+        query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 
@@ -379,7 +379,6 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
 
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
         batch_size = tf.shape(encoding)[0]
-        maxlen = tf.shape(encoding)[1]
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
 
         # initialise loop variables
@@ -454,6 +453,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         r = tf.tile(r, (1, maxlen, 1))
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
+        #alpha = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
 
     with tf.variable_scope('end'):
         updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
@@ -465,6 +465,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         r = tf.tile(r, (1, maxlen, 1))
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         beta = highway_maxout(highway_input, state_size, pool_size, keep_prob)
+        #beta = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
     
     return tf.stack([alpha, beta], axis=2)
     
@@ -474,17 +475,17 @@ def two_layer_mlp(inputs, hidden_size, keep_prob=1.0):
 
     Args:  
         inputs: Tensor of rank 3, shape [N, D, ?]. Inputs to network.  
-        hidden_size: Scalar integer. Hidden units of highway maxout network.  
-        keep_prob: Scalar float. Input dropout keep probability for maxout layers.  
+        hidden_size: Scalar integer. Hidden units of network.  
+        keep_prob: Scalar float. Input dropout keep probability.  
 
     Returns:  
         Tensor of rank 2, shape [N, D]. Logits.
     """
     
     inputs = tf.nn.dropout(inputs, keep_prob)
-    layer1 = tf.layers.dense(inputs, state_size, activation=tf.nn.relu)
+    layer1 = tf.layers.dense(inputs, hidden_size, activation=tf.nn.relu)
     output = tf.layers.dense(layer1, 1)
-    output = tf.squeeze(output)
+    output = tf.squeeze(output, -1)
     return output
 
 
