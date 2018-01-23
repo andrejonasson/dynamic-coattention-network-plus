@@ -177,7 +177,7 @@ def dcnplus_encode(cell_factory, final_cell_factory, query, query_length, docume
         )
     
     with tf.variable_scope('coattention_1'):
-        summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length)
+        summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     with tf.variable_scope('summary_encoder'):
         summary = cell_factory()
