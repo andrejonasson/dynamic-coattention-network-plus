@@ -68,7 +68,7 @@ class DCN:
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn/dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
             with tf.variable_scope('prediction'):
-                start_logit, end_logit = naive_decode(encoding)
+                start_logit, end_logit = naive_decode(encoding, hparams['state_size'])
                 start_prob, end_prob = tf.nn.softmax(start_logit), tf.nn.softmax(end_logit)
                 self.answer = max_product_span(start_prob, end_prob, self.paragraph_length)
                 # TODO _maybe_mask_score  [tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)]

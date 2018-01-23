@@ -79,7 +79,7 @@ def max_product_span(start, end, length):
     return span_start, span_end
 
 
-def naive_decode(encoding):
+def naive_decode(encoding, state_size):
     """ Decodes encoding to answer span logits.
 
     Args:  
@@ -92,15 +92,17 @@ def naive_decode(encoding):
     """
     
     with tf.variable_scope('decode_start'):
-        start_logit = tf.layers.dense(encoding, 1)
+        start_logit = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
+        start_logit = tf.layers.dense(encoding, 1, activation=tf.nn.relu)
         start_logit = tf.squeeze(start_logit)
 
     with tf.variable_scope('decode_end'):
-        end_logit = tf.layers.dense(encoding, 1)
+        end_logit = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
+        end_logit = tf.layers.dense(encoding, 1, activation=tf.nn.relu)
         end_logit = tf.squeeze(end_logit)
-
+    
     return start_logit, end_logit
-
+    
 
 @function.Defun(
     python_grad_func=lambda x, dy: tf.convert_to_tensor(dy),
