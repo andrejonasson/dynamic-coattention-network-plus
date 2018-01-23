@@ -1,7 +1,6 @@
 import copy
 
 import tensorflow as tf
-from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
 from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory, char_cnn_word_vectors
 from networks.dcn_plus import baseline_encode, dcn_encode, dcnplus_encode, dcn_decode, dcn_loss
@@ -17,7 +16,6 @@ class DCN:
     Args:  
         pretrained_embeddings: Pretrained embeddings.  
         hparams: dictionary of all hyperparameters for models.  
-        is_training: Boolean. Whether model is training or not.  
     """
     def __init__(self, pretrained_embeddings, hparams):
         self.hparams = copy.copy(hparams)
@@ -69,10 +67,9 @@ class DCN:
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn/dcn_plus
         if hparams['model'] in ('baseline', 'mixed'):
             with tf.variable_scope('prediction'):
-                start_logit, end_logit = naive_decode(encoding, hparams['state_size'])
+                start_logit, end_logit = naive_decode(encoding, hparams['state_size'], self.paragraph_length)
                 start_prob, end_prob = tf.nn.softmax(start_logit), tf.nn.softmax(end_logit)
                 self.answer = max_product_span(start_prob, end_prob, self.paragraph_length)
-                # TODO _maybe_mask_score  [tf.nn.softmax(self.start_logit), tf.nn.softmax(self.end_logit)]
 
             with tf.variable_scope('loss'):
                 start_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=start_logit, labels=self.answer_span[:, 0], name='start_loss')

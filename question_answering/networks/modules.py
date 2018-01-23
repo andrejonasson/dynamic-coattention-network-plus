@@ -1,5 +1,6 @@
 import tensorflow as tf
 from tensorflow.python.framework import function
+from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
 def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
     """ Masks affinity along its third dimension with `affinity_mask_value`.
@@ -79,7 +80,7 @@ def max_product_span(start, end, length):
     return span_start, span_end
 
 
-def naive_decode(encoding, state_size):
+def naive_decode(encoding, state_size, document_length):
     """ Decodes encoding to answer span logits.
 
     Args:  
@@ -95,12 +96,13 @@ def naive_decode(encoding, state_size):
         start_relu = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
         start_logit = tf.layers.dense(start_relu, 1)
         start_logit = tf.squeeze(start_logit)
+        start_logit = _maybe_mask_score(start_logit, document_length, -1e30)
 
     with tf.variable_scope('decode_end'):
         end_relu = tf.layers.dense(encoding, state_size, activation=tf.nn.relu)
         end_logit = tf.layers.dense(end_relu, 1)
         end_logit = tf.squeeze(end_logit)
-    
+        end_logit = _maybe_mask_score(end_logit, document_length, -1e30)
     return start_logit, end_logit
     
 

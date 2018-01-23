@@ -25,6 +25,8 @@ Shape notation:
 """
 
 import tensorflow as tf
+from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
+
 from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor
 
 
@@ -119,7 +121,7 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
     with tf.variable_scope('initial_encoder'):
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length, bidirectional=False)
-        query_encoding = tf.nn.dropout(query_encoding, keep_prob)
+        # query_encoding = tf.nn.dropout(query_encoding, keep_prob) # test if wanted
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 
@@ -128,7 +130,7 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
         )
     
     with tf.variable_scope('coattention'):
-        _, summary_d, coattention_d = coattention(query_encoding, query_length, document_encoding, document_length)
+        _, summary_d, coattention_d = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
     
     document_representations = [document_encoding, summary_d, coattention_d]
 
@@ -164,8 +166,6 @@ def dcnplus_encode(cell_factory, final_cell_factory, query, query_length, docume
     """
 
     with tf.variable_scope('initial_encoder'):
-        # query = tf.nn.dropout(query, keep_prob)
-        # paragraph = tf.nn.dropout(paragraph, keep_prob)
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length)
         query_encoding = tf.nn.dropout(query_encoding, keep_prob)
@@ -177,19 +177,13 @@ def dcnplus_encode(cell_factory, final_cell_factory, query, query_length, docume
         )
     
     with tf.variable_scope('coattention_1'):
-        # query_encoding = tf.nn.dropout(query_encoding, keep_prob)
-        # paragraph_encoding = tf.nn.dropout(paragraph_encoding, keep_prob)
-        summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length, sentinel=True)
+        summary_q_1, summary_d_1, coattention_d_1 = coattention(query_encoding, query_length, document_encoding, document_length)
     
     with tf.variable_scope('summary_encoder'):
-        # summary_q_1 = tf.nn.dropout(summary_q_1, keep_prob)
-        # summary_d_1 = tf.nn.dropout(summary_d_1, keep_prob)
         summary = cell_factory()
         summary_q_encoding, summary_d_encoding = query_document_encoder(summary, summary_q_1, query_length, summary_d_1, document_length)
     
     with tf.variable_scope('coattention_2'):
-        # summary_q_encoding = tf.nn.dropout(summary_q_encoding, keep_prob)
-        # summary_d_encoding = tf.nn.dropout(summary_d_encoding, keep_prob)
         _, summary_d_2, coattention_d_2 = coattention(summary_q_encoding, query_length, summary_d_encoding, document_length)
 
     document_representations = [
@@ -203,7 +197,6 @@ def dcnplus_encode(cell_factory, final_cell_factory, query, query_length, docume
 
     with tf.variable_scope('final_encoder'):
         document_representation = convert_gradient_to_tensor(tf.concat(document_representations, 2))
-        # document_representation = tf.nn.dropout(document_representation, keep_prob)
         final = final_cell_factory()
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
             cell_fw = final,
@@ -394,7 +387,8 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
             enc_masked = tf.boolean_mask(encoding, not_settled)
             output_masked = tf.boolean_mask(output, not_settled)
             answer_masked = tf.boolean_mask(answer, not_settled)
-            new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size, keep_prob)
+            document_length_masked = tf.boolean_mask(document_length, not_settled)
+            new_logit = decoder_body(enc_masked, output_masked, answer_masked, state_size, pool_size, document_length_masked, keep_prob)
             new_idx = tf.boolean_mask(tf.range(batch_size), not_settled)
             logit = tf.dynamic_stitch([tf.range(batch_size), new_idx], [prev_logit, new_logit])  # TODO test that correct
             return logit
@@ -405,7 +399,7 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
             
             output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
             if i == 0:
-                logit = decoder_body(encoding, output, answer, state_size, pool_size, keep_prob)
+                logit = decoder_body(encoding, output, answer, state_size, pool_size, document_length, keep_prob)
             else:
                 prev_logit = logits.read(i-1)
                 logit = tf.cond(
@@ -413,8 +407,9 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
                     lambda: calculate_not_settled_logits(not_settled, answer, output, prev_logit),
                     lambda: prev_logit
                 )
-            start = tf.argmax(logit[:, :, 0], axis=1, output_type=tf.int32)
-            end = tf.argmax(logit[:, :, 1], axis=1, output_type=tf.int32)
+            start_logit, end_logit = logit[:, :, 0], logit[:, :, 1]
+            start = tf.argmax(start_logit, axis=1, output_type=tf.int32)
+            end = tf.argmax(end_logit, axis=1, output_type=tf.int32)
             new_answer = tf.stack([start, end], axis=1)
             if i == 0:
                 not_settled = tf.tile([True], (batch_size,))
@@ -427,7 +422,7 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
     return logits
 
 
-def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
+def decoder_body(encoding, state, answer, state_size, pool_size, document_length, keep_prob=1.0):
     """ Decoder feedforward network.  
 
     Calculates answer span start and end logits.  
@@ -454,6 +449,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
         #alpha = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
+        alpha = _maybe_mask_score(alpha, document_length, -1e30)
 
     with tf.variable_scope('end'):
         updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
@@ -466,6 +462,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, keep_prob=1.0):
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
         beta = highway_maxout(highway_input, state_size, pool_size, keep_prob)
         #beta = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
+        beta = _maybe_mask_score(beta, document_length, -1e30)
     
     return tf.stack([alpha, beta], axis=2)
     

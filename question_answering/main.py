@@ -32,7 +32,6 @@ tf.app.flags.DEFINE_float("decay_rate", 0.75, "Learning rate.")
 tf.app.flags.DEFINE_boolean("clip_gradients", True, "Whether to clip gradients.")
 tf.app.flags.DEFINE_float("max_gradient_norm", 10.0, "Clip gradients to this norm.")
 
-
 # Model hyperparameters
 tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, baseline / mixed / dcn / dcnplus")
 tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, gru / lstm")
@@ -40,11 +39,11 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-tf.app.flags.DEFINE_float("input_keep_prob", 0.75, "Encoder: Fraction of units randomly kept of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
-tf.app.flags.DEFINE_float("final_input_keep_prob", 0.75, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.70, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -65,11 +64,14 @@ tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training
 # Evaluation arguments
 tf.app.flags.DEFINE_integer("eval_batches", 80, "Number of batches of size batch_size to use for evaluation.")
 
+# Print
+tf.app.flags.DEFINE_integer("global_steps_per_timing", 500, "Number of steps per global step per sec evaluation.")
+tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
+
 # Directories etc.
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
 tf.app.flags.DEFINE_string("data_dir", os.path.join("..", "data", "squad"), "SQuAD directory (default ../data/squad)") 
 tf.app.flags.DEFINE_string("train_dir", os.path.join("..", "checkpoints"), "Training directory to save the model parameters (default: ../checkpoints).")
-tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
 tf.app.flags.DEFINE_string("vocab_path", os.path.join("..", "data", "squad", "vocab.dat"), "Path to vocab file (default: ../data/squad/vocab.dat)")
 tf.app.flags.DEFINE_string("embed_path", "", "Path to the trimmed GLoVe embedding (default: ../data/squad/glove.trimmed.{embedding_size}.npz)")
 
@@ -263,7 +265,7 @@ def do_train(model, train, dev):
         latest_ckpt = tf.train.latest_checkpoint(checkpoint_dir)
         if latest_ckpt:
             saver.restore(sess, latest_ckpt)
-
+        start = timer()
         for i in itertools.count():
             feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size), is_training=True)
             fetch_dict = {
@@ -299,6 +301,11 @@ def do_train(model, train, dev):
                 dev_em = exact_match(prediction, truth)
                 summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='F1_DEV', simple_value=dev_f1)]), step)
                 print(f'Step {step}, Dev loss {dev_loss:.2f}, Dev F1/EM: {dev_f1:.3f}/{dev_em:.3f}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
+            
+            if step > 0 and step % FLAGS.global_steps_per_timing == 0:
+                time_iter = timer() - start
+                print(f'INFO:global_step/sec: {FLAGS.global_steps_per_timing/time_iter:.2f}')
+                start = timer()
             
             if step == FLAGS.max_steps:
                 break
