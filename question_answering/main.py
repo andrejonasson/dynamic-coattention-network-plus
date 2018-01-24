@@ -43,7 +43,7 @@ tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units ra
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
-tf.app.flags.DEFINE_float("final_input_keep_prob", 0.70, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.80, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -299,8 +299,12 @@ def do_train(model, train, dev):
                 prediction, truth = multibatch_prediction_truth(sess, model, dev, num_batches=20, random=True)
                 dev_f1 = f1(prediction, truth)
                 dev_em = exact_match(prediction, truth)
+                prediction, truth = multibatch_prediction_truth(sess, model, train, num_batches=20, random=True)
+                train_f1 = f1(prediction, truth)
+                train_em = exact_match(prediction, truth)
                 summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='F1_DEV', simple_value=dev_f1)]), step)
-                print(f'Step {step}, Dev loss {dev_loss:.2f}, Dev F1/EM: {dev_f1:.3f}/{dev_em:.3f}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
+                summary_writer.add_summary(tf.Summary(value=[tf.Summary.Value(tag='F1_TR', simple_value=train_f1)]), step)
+                print(f'Step {step}, Dev loss {dev_loss:.2f}, Train/Dev F1: {train_f1:.3f}/{dev_f1:.3f}, Train/Dev EM: {train_em:.3f}/{dev_em:.3f}, Time to evaluate: {timer() - start_evaluate:.1f} sec')
             
             if step > 0 and step % FLAGS.global_steps_per_timing == 0:
                 time_iter = timer() - start

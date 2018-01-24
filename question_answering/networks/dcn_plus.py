@@ -62,7 +62,7 @@ def baseline_encode(cell_factory, final_cell_factory, query, query_length, docum
     with tf.variable_scope('initial_encoder'):
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length, bidirectional=False)
-        query_encoding = tf.nn.dropout(query_encoding, keep_prob)
+        #query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 
@@ -168,7 +168,7 @@ def dcnplus_encode(cell_factory, final_cell_factory, query, query_length, docume
     with tf.variable_scope('initial_encoder'):
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length)
-        query_encoding = tf.nn.dropout(query_encoding, keep_prob)
+        #query_encoding = tf.nn.dropout(query_encoding, keep_prob)
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 
