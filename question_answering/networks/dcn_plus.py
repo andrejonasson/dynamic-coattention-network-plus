@@ -373,11 +373,12 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
     with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
         batch_size = tf.shape(encoding)[0]
         lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
+        lstm_dec = tf.contrib.rnn.DropoutWrapper(lstm_dec, input_keep_prob=keep_prob)
 
         # initialise loop variables
         # TODO possibly just choose first and last encoding
         start = tf.zeros((batch_size,), dtype=tf.int32)
-        end = document_length
+        end = document_length - 1
         answer = tf.stack([start, end], axis=1)
         state = lstm_dec.zero_state(batch_size, dtype=tf.float32)
         not_settled = tf.tile([True], (batch_size,))
@@ -443,7 +444,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, document_length
     with tf.variable_scope('start'):
         span_encoding = start_and_end_encoding(encoding, answer)
         r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
-        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)  # add dropout?
+        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)#tf.nn.dropout(, keep_prob)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
@@ -455,7 +456,7 @@ def decoder_body(encoding, state, answer, state_size, pool_size, document_length
         updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
         updated_answer = tf.stack([updated_start, answer[:, 1]], axis=1)
         span_encoding = start_and_end_encoding(encoding, updated_answer)
-        r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
+        r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))# tf.nn.dropout(, keep_prob)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
