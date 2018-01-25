@@ -13,10 +13,58 @@ class SquadDataset:
         # read files into memory to save I/O cost
         # also checks that lengths match
         self._read_into_memory()
+        self.epoch_sampled = 0
+        self.epoch = 1
 
     def get_batch(self, batch_size, replace=True):
-        batch_idx = np.random.choice(self.length, batch_size, replace)
-        return self[batch_idx]
+        if replace:
+            batch_idx = np.random.choice(self.length, batch_size, replace)
+            return self[batch_idx]
+
+        if self.epoch_sampled == self.length:
+            self.shuffle()
+            self.epoch_sampled = 0
+            self.epoch += 1
+        
+        tail_batch = []
+        if self.epoch_sampled + batch_size > self.length:
+            tail_batch = self[self.epoch_sampled:]
+            batch_size -= len(tail_batch[0])
+            self.shuffle()
+            self.epoch_sampled = 0
+            self.epoch += 1
+        
+        batch = self[self.epoch_sampled:self.epoch_sampled+batch_size]
+        self.epoch_sampled += batch_size
+        if tail_batch:
+            batch = self.join(tail_batch, batch)
+        return batch
+
+
+    def shuffle(self):
+        """ https://stackoverflow.com/questions/11765061/better-way-to-shuffle-two-related-lists """
+        from random import shuffle
+        question_shuf = []
+        paragraph_shuf = []
+        answer_shuf = []
+        index_shuf = list(range(self.length))
+        shuffle(index_shuf)
+
+        for i in index_shuf:
+            question_shuf.append(self.question[i])
+            paragraph_shuf.append(self.paragraph[i])
+            answer_shuf.append(self.answer[i])
+
+        self.question, self.paragraph, self.answer = tuple(question_shuf), tuple(paragraph_shuf), tuple(answer_shuf)
+
+
+    @staticmethod
+    def join(first, second):
+        a = []
+        for i, j in zip(first, second):
+            a.append(i+j)
+        return tuple(a)
+
 
     def __getitem__(self, arg):
         from collections.abc import Iterable
@@ -36,6 +84,7 @@ class SquadDataset:
 
         return (questions, paragraphs, question_lengths, paragraph_lengths, answers)
 
+
     @staticmethod
     def read_file(file):
         def process_line(line):
@@ -46,6 +95,7 @@ class SquadDataset:
         with open(file) as f:
             dataset = [process_line(line) for line in f]
         return dataset
+
 
     def _read_into_memory(self):
         question = self.read_file(self.question_file)
@@ -58,13 +108,14 @@ class SquadDataset:
             [
                 (q, p, a) 
                 for q, p, a in zip(question, paragraph, answer) 
-                if  max(a) < self.max_paragraph_length
-                and len(q) < self.max_question_length
+                if len(p) < self.max_paragraph_length
+                and len(q) < self.max_question_length   # max(a) < self.max_paragraph_length Questionable
             ]
         )
 
         assert len(self.question) == len(self.answer) == len(self.paragraph)
         self.length = len(self.question)
+
 
 def pad_sequence(sequence, max_length):
         """ Pads data of format `(sequence, labels)` to `max_length` sequence length
@@ -83,14 +134,17 @@ def pad_sequence(sequence, max_length):
 
         return padded_sequence, length
 
+
 def pad_sequences(sequences, max_length):
     padded_sequences, lengths = zip(*[pad_sequence(sequence, max_length) for sequence in sequences])
     return padded_sequences, lengths
+
 
 if __name__ == '__main__':
     from utils import get_data_paths
     import os
     data_dir = os.path.join("..", "data", "squad")
-    dataset = SquadDataset(*get_data_paths(data_dir, name='train'), 10)
+    dataset = SquadDataset(*get_data_paths(data_dir, name='train'), 10, 100)
     print(dataset.get_batch(2))
     print(dataset[:2])
+    print(dataset.question)

@@ -39,11 +39,11 @@ tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocab
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
 tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
 tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
-tf.app.flags.DEFINE_float("input_keep_prob", 0.8, "Encoder: Fraction of units randomly kept of inputs to RNN.")
+tf.app.flags.DEFINE_float("input_keep_prob", 0.7, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
 tf.app.flags.DEFINE_float("encoding_keep_prob", 1.0, "Encoder: Fraction of encoding output kept.")
-tf.app.flags.DEFINE_float("final_input_keep_prob", 0.80, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
+tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of units randomly kept of inputs to final encoder RNN.")
 
 # DCN+ hyperparameters
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
@@ -65,8 +65,8 @@ tf.app.flags.DEFINE_integer("batch_size", 32, "Batch size to use during training
 tf.app.flags.DEFINE_integer("eval_batches", 80, "Number of batches of size batch_size to use for evaluation.")
 
 # Print
-tf.app.flags.DEFINE_integer("global_steps_per_timing", 500, "Number of steps per global step per sec evaluation.")
-tf.app.flags.DEFINE_integer("print_every", 100, "How many iterations to do per print.")
+tf.app.flags.DEFINE_integer("global_steps_per_timing", 600, "Number of steps per global step per sec evaluation.")
+tf.app.flags.DEFINE_integer("print_every", 200, "How many iterations to do per print.")
 
 # Directories etc.
 tf.app.flags.DEFINE_string("model_name", datetime.now().strftime('%y%m%d_%H%M%S'), "Models name, used for folder management.")
@@ -224,7 +224,7 @@ def multibatch_prediction_truth(session, model, data, num_batches=None, random=F
     end = []
     for i in range(num_batches):
         if random:
-            q, p, ql, pl, a = data.get_batch(FLAGS.batch_size, replace=False)
+            q, p, ql, pl, a = data.get_batch(FLAGS.batch_size)
         else:
             begin_idx = i * FLAGS.batch_size
             q, p, ql, pl, a = data[begin_idx:begin_idx+FLAGS.batch_size]
@@ -266,8 +266,13 @@ def do_train(model, train, dev):
         if latest_ckpt:
             saver.restore(sess, latest_ckpt)
         start = timer()
+        epoch = -1
         for i in itertools.count():
-            feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size), is_training=True)
+            feed_dict = model.fill_feed_dict(*train.get_batch(FLAGS.batch_size, replace=False), is_training=True)
+            if epoch != train.epoch:
+                epoch = train.epoch
+                print(f'Epoch {epoch}')
+
             fetch_dict = {
                 'step': tf.train.get_global_step(),
                 'loss': model.loss,
@@ -399,7 +404,7 @@ def main(_):
                          max_question_length=FLAGS.max_question_length, 
                          max_paragraph_length=FLAGS.max_paragraph_length) # change to eval to zero if too long
 
-    # logging.info(f'Train/Dev size {train.length}/{dev.length}')
+    logging.info(f'Train/Dev size {train.length}/{dev.length}')
 
     # Load embeddings
     embed_path = FLAGS.embed_path or pjoin(FLAGS.data_dir, "glove.trimmed.{}.npz".format(FLAGS.embedding_size))
