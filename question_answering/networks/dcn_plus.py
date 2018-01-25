@@ -89,7 +89,7 @@ def baseline_encode(cell_factory, final_cell_factory, query, query_length, docum
     return encoding  # N x P x 2H
 
 
-def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0):
+def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0, final_input_keep_prob=1.0):
     """ DCN Encoder that encodes questions and paragraphs into one representation.  
 
     It first encodes the question and paragraphs using a shared LSTM, then uses a 
@@ -121,7 +121,7 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
     with tf.variable_scope('initial_encoder'):
         initial = cell_factory()
         query_encoding, document_encoding = query_document_encoder(initial, query, query_length, document, document_length, bidirectional=False)
-        # query_encoding = tf.nn.dropout(query_encoding, keep_prob) # test if wanted
+        #query_encoding = tf.nn.dropout(query_encoding, keep_prob) # test if wanted
         query_encoding = tf.layers.dense(
             query_encoding, 
             query_encoding.get_shape()[2], 
@@ -136,6 +136,7 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
 
     with tf.variable_scope('final_encoder'):
         document_representation = tf.concat(document_representations, 2)
+        document_representation = tf.nn.dropout(document_representation, final_input_keep_prob) # test if wanted
         final = final_cell_factory()
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
             cell_fw = final,
@@ -376,7 +377,6 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
         lstm_dec = tf.contrib.rnn.DropoutWrapper(lstm_dec, input_keep_prob=keep_prob)
 
         # initialise loop variables
-        # TODO possibly just choose first and last encoding
         start = tf.zeros((batch_size,), dtype=tf.int32)
         end = document_length - 1
         answer = tf.stack([start, end], axis=1)
@@ -423,6 +423,30 @@ def dcn_decode(encoding, document_length, state_size=100, pool_size=4, max_iter=
     return logits
 
 
+def dcn_decode_simplified(encoding, document_length, state_size=100, pool_size=4, max_iter=4, keep_prob=1.0):
+    with tf.variable_scope('decoder_loop', reuse=tf.AUTO_REUSE):
+        batch_size = tf.shape(encoding)[0]
+        lstm_dec = tf.contrib.rnn.LSTMCell(num_units=state_size)
+        lstm_dec = tf.contrib.rnn.DropoutWrapper(lstm_dec, input_keep_prob=keep_prob)
+
+        # initialise loop variables
+        start = tf.zeros((batch_size,), dtype=tf.int32)
+        end = document_length - 1
+        answer = tf.stack([start, end], axis=1)
+        state = lstm_dec.zero_state(batch_size, dtype=tf.float32)
+        logits = tf.TensorArray(tf.float32, size=max_iter, clear_after_read=False)
+
+        for i in range(max_iter):
+            output, state = lstm_dec(start_and_end_encoding(encoding, answer), state)
+            logit = decoder_body(encoding, output, answer, state_size, pool_size, document_length, keep_prob)
+            start_logit, end_logit = logit[:, :, 0], logit[:, :, 1]
+            start = tf.argmax(start_logit, axis=1, output_type=tf.int32)
+            end = tf.argmax(end_logit, axis=1, output_type=tf.int32)
+            answer = tf.stack([start, end], axis=1)
+            logits = logits.write(i, logit)
+        
+    return logits
+
 def decoder_body(encoding, state, answer, state_size, pool_size, document_length, keep_prob=1.0):
     """ Decoder feedforward network.  
 
@@ -441,32 +465,29 @@ def decoder_body(encoding, state, answer, state_size, pool_size, document_length
     """
     maxlen = tf.shape(encoding)[1]
     
-    with tf.variable_scope('start'):
+    def highway_maxout_network(answer):
         span_encoding = start_and_end_encoding(encoding, answer)
         r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))
-        r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)#tf.nn.dropout(, keep_prob)
-        r = tf.expand_dims(r, 1)
-        r = tf.tile(r, (1, maxlen, 1))
-        highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
-        alpha = highway_maxout(highway_input, state_size, pool_size, keep_prob)
-        #alpha = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
-        alpha = _maybe_mask_score(alpha, document_length, -1e30)
-
-    with tf.variable_scope('end'):
-        updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
-        updated_answer = tf.stack([updated_start, answer[:, 1]], axis=1)
-        span_encoding = start_and_end_encoding(encoding, updated_answer)
-        r_input = convert_gradient_to_tensor(tf.concat([state, span_encoding], axis=1))# tf.nn.dropout(, keep_prob)
+        r_input = tf.nn.dropout(r_input, keep_prob)
         r = tf.layers.dense(r_input, state_size, use_bias=False, activation=tf.tanh)
         r = tf.expand_dims(r, 1)
         r = tf.tile(r, (1, maxlen, 1))
         highway_input = convert_gradient_to_tensor(tf.concat([encoding, r], 2))
-        beta = highway_maxout(highway_input, state_size, pool_size, keep_prob)
-        #beta = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
-        beta = _maybe_mask_score(beta, document_length, -1e30)
+        logit = highway_maxout(highway_input, state_size, pool_size, keep_prob)
+        #alpha = two_layer_mlp(highway_input, state_size, keep_prob=keep_prob)
+        logit = _maybe_mask_score(logit, document_length, -1e30)
+        return logit
+
+    with tf.variable_scope('start'):
+        alpha = highway_maxout_network(answer)
+
+    with tf.variable_scope('end'):
+        updated_start = tf.argmax(alpha, axis=1, output_type=tf.int32)
+        updated_answer = tf.stack([updated_start, answer[:, 1]], axis=1)
+        beta = highway_maxout_network(updated_answer)
     
     return tf.stack([alpha, beta], axis=2)
-    
+
 
 def two_layer_mlp(inputs, hidden_size, keep_prob=1.0):
     """ Two layer MLP network.
@@ -503,7 +524,7 @@ def highway_maxout(inputs, hidden_size, pool_size, keep_prob=1.0):
     layer2 = maxout_layer(layer1, hidden_size, pool_size, keep_prob)
     
     highway = convert_gradient_to_tensor(tf.concat([layer1, layer2], -1))
-    output = maxout_layer(highway, 1, pool_size)
+    output = maxout_layer(highway, 1, pool_size, keep_prob)
     output = tf.squeeze(output, -1)
     return output
 
