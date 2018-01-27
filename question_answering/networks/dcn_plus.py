@@ -549,8 +549,7 @@ def maxout_layer(inputs, outputs, pool_size, keep_prob=1.0):
     inputs = tf.nn.dropout(inputs, keep_prob)
     pool = tf.layers.dense(inputs, outputs*pool_size)
     pool = tf.reshape(pool, (-1, tf.shape(inputs)[1], outputs, pool_size))
-    output = tf.contrib.layers.maxout(pool, 1)
-    output = tf.squeeze(output, -1)
+    output = tf.reduce_max(pool, -1)
     return output
 
 
