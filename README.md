@@ -86,7 +86,7 @@ replacing `<EMBEDDINGS_DIMENSIONS>` by the word embedding size you want (100, 20
 
 The default mode of `main.py` is to train a DCN+ network, run
 ``` sh
-$ python main.py
+$ python main.py --embedding_size <EMBEDDINGS_DIMENSIONS>
 ```
 to begin training. See the source code for all the arguments and modes that `main.py` supports. Checkpoints and logs will be placed under a timestamped folder in the `../checkpoints` folder by default. 
 
