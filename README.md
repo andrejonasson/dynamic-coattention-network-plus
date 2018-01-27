@@ -7,16 +7,8 @@ SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning 
 
 ## Networks
 
-### Dynamic Coattention Network Plus (DCN+)
-
-DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the attention in the Transformer Network, Vaswani et al (2017). The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of a mixed objective the implementation uses cross entropy like the vanilla DCN.
-
-<img src="encoder.png">
-
-For the implementation see `networks.dcn_plus`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
-
 ### Baseline model
-Simple baseline model (BiLSTM + DCN-like Coattention + Naive decoder).
+Baseline model (BiLSTM + DCN-like Coattention + Naive decoder).
 
 Starting point for hyperparameters
 ```
@@ -31,12 +23,21 @@ Learning Rate = 0.005/0.001
 Achieves dev ~ F1 0.620 / EM 0.452
 ```
 
-Increasing embedding size and state size could improve performance further.
+## Dynamic Coattention Network (DCN)
+Implemented using components from DCN+ but with one layer attention and a single directional initial LSTM encoder.
+
+### Dynamic Coattention Network Plus (DCN+)
+
+DCN+ encoder combines the question and passage using a dot-product based coattention mechanism, similar to the attention in the Transformer Network, Vaswani et al (2017). The decoder is application specific, specifically made for finding an answer span within a passage, it uses an iterative mechanism for recovering from local minima. Instead of a mixed objective the implementation uses cross entropy like the vanilla DCN.
+
+<img src="encoder.png">
+
+For the implementation see `networks.dcn_plus`. An effort has been made to document each component. Each component of the encoder (coattention layer, affinity softmax masking, sentinel vectors and encoder units) and certain parts of the decoder are modular and can easily be used with other networks.
 
 ### Todos
 - Character embeddings (Char-CNN as in BiDAF [5])
 - Sparse mixture of experts
-- Compatability with official evaluation script
+- Compatibility with official evaluation script
 - Figure out where and to what degree dropout should be applied
 
 ## Additional Modules
