@@ -21,6 +21,9 @@ class SquadDataset:
             batch_idx = np.random.choice(self.length, batch_size, replace)
             return self[batch_idx]
 
+        if self.epoch_sampled == 0 and self.epoch == 1:
+            self.shuffle()
+
         if self.epoch_sampled == self.length:
             self.shuffle()
             self.epoch_sampled = 0
