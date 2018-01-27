@@ -37,8 +37,8 @@ tf.app.flags.DEFINE_string("model", 'dcnplus', "Model to train or evaluate, base
 tf.app.flags.DEFINE_string("cell", 'lstm', "Cell type to use for RNN, gru / lstm")
 tf.app.flags.DEFINE_integer("embedding_size", 100, "Size of the pretrained vocabulary.")
 tf.app.flags.DEFINE_integer("state_size", 100, "Size of each model layer.")
-tf.app.flags.DEFINE_integer("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
-tf.app.flags.DEFINE_integer("trainable_embeddings", False, "Make embeddings trainable.")
+tf.app.flags.DEFINE_boolean("trainable_initial_state", False, "Make RNNCell initial states trainable.")  # Not implemented
+tf.app.flags.DEFINE_boolean("trainable_embeddings", False, "Make embeddings trainable.")
 tf.app.flags.DEFINE_float("input_keep_prob", 0.7, "Encoder: Fraction of units randomly kept of inputs to RNN.")
 tf.app.flags.DEFINE_float("output_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of outputs from RNN.")
 tf.app.flags.DEFINE_float("state_keep_prob", 1.0, "Encoder: Fraction of units randomly kept of encoder states in RNN.")
@@ -51,7 +51,7 @@ tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of deco
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
 
 # Character embeddings  (NOTE: INPUT PROCESSING NOT IMPLEMENTED YET)
-tf.app.flags.DEFINE_integer("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
+tf.app.flags.DEFINE_boolean("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
 tf.app.flags.DEFINE_integer("char_vocab_size", 4, "Number of characters in vocabulary.")  # TODO will be overridden by loaded vocab, probably not needed
 tf.app.flags.DEFINE_integer("char_embedding_size", 8, "Size of character embeddings.")
 tf.app.flags.DEFINE_integer("max_word_length", 15, "Maximum number of characters per word.")
