@@ -23,7 +23,7 @@ Learning Rate = 0.005/0.001
 Achieves dev ~ F1 0.620 / EM 0.452
 ```
 
-## Dynamic Coattention Network (DCN)
+### Dynamic Coattention Network (DCN)
 Implemented using components from DCN+ but with one layer attention and a single directional initial LSTM encoder.
 
 ### Dynamic Coattention Network Plus (DCN+)
