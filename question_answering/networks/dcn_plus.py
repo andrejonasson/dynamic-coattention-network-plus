@@ -89,7 +89,7 @@ def baseline_encode(cell_factory, final_cell_factory, query, query_length, docum
     return encoding  # N x P x 2H
 
 
-def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0, final_input_keep_prob=1.0):
+def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0):
     """ DCN Encoder that encodes questions and paragraphs into one representation.  
 
     It first encodes the question and paragraphs using a shared LSTM, then uses a 
@@ -136,7 +136,6 @@ def dcn_encode(cell_factory, final_cell_factory, query, query_length, document, 
 
     with tf.variable_scope('final_encoder'):
         document_representation = tf.concat(document_representations, 2)
-        document_representation = tf.nn.dropout(document_representation, final_input_keep_prob) # test if wanted
         final = final_cell_factory()
         outputs, _ = tf.nn.bidirectional_dynamic_rnn(
             cell_fw = final,

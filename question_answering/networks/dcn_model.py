@@ -51,7 +51,7 @@ class DCN:
 
         # Setup RNN Cells
         cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], self.is_training, hparams['input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])
-        final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], self.is_training, 1.0, hparams['output_keep_prob'], hparams['state_keep_prob'])  # TODO TEMP hparams['final_input_keep_prob']
+        final_cell = lambda: cell_factory(hparams['cell'], hparams['state_size'], self.is_training, hparams['final_input_keep_prob'], hparams['output_keep_prob'], hparams['state_keep_prob'])  # TODO TEMP
 
         # Setup Encoders
         with tf.variable_scope('prediction'):
@@ -61,7 +61,7 @@ class DCN:
                 self.encode = dcn_encode
             else:
                 self.encode = dcnplus_encode
-            encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], self.is_training), final_input_keep_prob=maybe_dropout(hparams['final_input_keep_prob'], self.is_training))
+            encoding = self.encode(cell, final_cell, q_embeddings, self.question_length, p_embeddings, self.paragraph_length, keep_prob=maybe_dropout(hparams['keep_prob'], self.is_training))
             encoding = tf.nn.dropout(encoding, keep_prob=maybe_dropout(hparams['encoding_keep_prob'], self.is_training))
         
         # Decoder, loss and prediction mechanism are different for baseline/mixed and dcn/dcn_plus
