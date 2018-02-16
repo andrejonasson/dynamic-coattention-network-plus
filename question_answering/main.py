@@ -49,6 +49,8 @@ tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of un
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
+tf.app.flags.DEFINE_integer("force_end_gt_start", True, "Forces the predicted answer end to be greater than the start.")
+tf.app.flags.DEFINE_integer("max_answer_length", 20, "Maximum length of model's predicted answer span.")
 
 # Character embeddings  (NOTE: INPUT PROCESSING NOT IMPLEMENTED YET)
 tf.app.flags.DEFINE_boolean("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
@@ -229,6 +231,9 @@ def multibatch_prediction_truth(session, model, data, num_batches=None, random=F
             begin_idx = i * FLAGS.batch_size
             q, p, ql, pl, a = data[begin_idx:begin_idx+FLAGS.batch_size]
         answer_start, answer_end = session.run(model.answer, model.fill_feed_dict(q, p, ql, pl))
+        # for i, s in enumerate(answer_start):
+        #     if s > answer_end[i]:
+        #         print('predicted: ', (s, answer_end[i], pl[i]), 'truth: ', (a[i][0], a[i][1]))
         start.append(answer_start)
         end.append(answer_end)
         truth.extend(a)

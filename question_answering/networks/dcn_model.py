@@ -2,8 +2,9 @@ import copy
 
 import tensorflow as tf
 
-from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory, char_cnn_word_vectors
+from networks.modules import maybe_dropout, max_product_span, naive_decode, cell_factory, char_cnn_word_vectors, _maybe_mask_to_start
 from networks.dcn_plus import baseline_encode, dcn_encode, dcnplus_encode, dcn_decode, dcn_loss
+from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
 class DCN:
     """ Builds graph for DCN-type models  
@@ -82,7 +83,12 @@ class DCN:
                 logits = dcn_decode(encoding, self.paragraph_length, hparams['state_size'], hparams['pool_size'], hparams['max_iter'], keep_prob=maybe_dropout(hparams['keep_prob'], self.is_training))
                 last_iter_logit = logits.read(hparams['max_iter']-1)
                 start_logit, end_logit = last_iter_logit[:,:,0], last_iter_logit[:,:,1]
-                self.answer = (tf.argmax(start_logit, axis=1, name='answer_start'), tf.argmax(end_logit, axis=1, name='answer_end'))
+                start = tf.argmax(start_logit, axis=1, name='answer_start')
+                if hparams['force_end_gt_start']:
+                    end_logit = _maybe_mask_to_start(end_logit, start, -1e30)
+                if hparams['max_answer_length'] > 0:
+                    end_logit = _maybe_mask_score(end_logit, start+hparams['max_answer_length'], -1e30)
+                self.answer = (start, tf.argmax(end_logit, axis=1, name='answer_end'))
 
             with tf.variable_scope('loss'):
                 self.loss = dcn_loss(logits, self.answer_span, max_iter=hparams['max_iter'])

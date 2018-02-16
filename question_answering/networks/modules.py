@@ -24,6 +24,12 @@ def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-i
     return tf.where(score_mask, affinity, affinity_mask_values)
 
 
+def _maybe_mask_to_start(score, start, score_mask_value):
+    score_mask = tf.sequence_mask(start, maxlen=tf.shape(score)[1])
+    score_mask_values = score_mask_value * tf.ones_like(score)
+    return tf.where(~score_mask, score, score_mask_values)
+
+
 def maybe_dropout(keep_prob, is_training):
     return tf.cond(tf.convert_to_tensor(is_training), lambda: keep_prob, lambda: 1.0)
 
