@@ -50,7 +50,7 @@ tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network 
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
 tf.app.flags.DEFINE_integer("force_end_gt_start", True, "Forces the predicted answer end to be greater than the start.")
-tf.app.flags.DEFINE_integer("max_answer_length", 20, "Maximum length of model's predicted answer span.")
+tf.app.flags.DEFINE_integer("max_answer_length", 20, "Maximum length of model's predicted answer span. If set to zero or less there is no maximum length.")
 
 # Character embeddings  (NOTE: INPUT PROCESSING NOT IMPLEMENTED YET)
 tf.app.flags.DEFINE_boolean("use_char_cnn", False, "Whether to use character embeddings to build word vectors.")
