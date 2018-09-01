@@ -25,9 +25,8 @@ Shape notation:
 """
 
 import tensorflow as tf
-from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
-from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor
+from networks.modules import maybe_mask_affinity, convert_gradient_to_tensor, _maybe_mask_score
 
 
 def baseline_encode(cell_factory, final_cell_factory, query, query_length, document, document_length, keep_prob=1.0):
@@ -320,10 +319,10 @@ def coattention(query, query_length, document, document_length, sentinel=False):
         query_length += 1
     unmasked_affinity = tf.einsum('ndh,nqh->ndq', document, query)  # [N, D, Q] or [N, 1+D, 1+Q] if sentinel
     affinity = maybe_mask_affinity(unmasked_affinity, document_length)
-    attention_p = tf.nn.softmax(affinity, dim=1)
+    attention_p = tf.nn.softmax(affinity, axis=1)
     unmasked_affinity_t = tf.transpose(unmasked_affinity, [0, 2, 1])  # [N, Q, D] or [N, 1+Q, 1+D] if sentinel
     affinity_t = maybe_mask_affinity(unmasked_affinity_t, query_length)
-    attention_q = tf.nn.softmax(affinity_t, dim=1)
+    attention_q = tf.nn.softmax(affinity_t, axis=1)
     summary_q = tf.einsum('ndh,ndq->nqh', document, attention_p)  # [N, Q, 2H] or [N, 1+Q, 2H] if sentinel
     summary_d = tf.einsum('nqh,nqd->ndh', query, attention_q)  # [N, D, 2H] or [N, 1+D, 2H] if sentinel
     if sentinel:
@@ -445,6 +444,7 @@ def dcn_decode_simplified(encoding, document_length, state_size=100, pool_size=4
             logits = logits.write(i, logit)
         
     return logits
+
 
 def decoder_body(encoding, state, answer, state_size, pool_size, document_length, keep_prob=1.0):
     """ Decoder feedforward network.  

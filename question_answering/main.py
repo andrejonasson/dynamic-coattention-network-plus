@@ -49,7 +49,7 @@ tf.app.flags.DEFINE_float("final_input_keep_prob", 0.7, "Encoder: Fraction of un
 tf.app.flags.DEFINE_integer("pool_size", 4, "Number of units the maxout network pools.")
 tf.app.flags.DEFINE_integer("max_iter", 4, "Maximum number of iterations of decoder.")
 tf.app.flags.DEFINE_float("keep_prob", 0.80, "Decoder: Fraction of units randomly kept on non-recurrent connections.")
-tf.app.flags.DEFINE_integer("force_end_gt_start", True, "Forces the predicted answer end to be greater than the start.")
+tf.app.flags.DEFINE_boolean("force_end_gt_start", True, "Forces the predicted answer end to be greater than or equal to the start.")
 tf.app.flags.DEFINE_integer("max_answer_length", 20, "Maximum length of model's predicted answer span. If set to zero or less there is no maximum length.")
 
 # Character embeddings  (NOTE: INPUT PROCESSING NOT IMPLEMENTED YET)
@@ -335,11 +335,11 @@ def save_flags():
         json_path = os.path.join(FLAGS.train_dir, FLAGS.model_name, f"flags_{i}.json")
         if os.path.exists(json_path):
             with open(json_path, 'r') as f:
-                if json.load(f) == FLAGS.__flags:
+                if json.load(f) == FLAGS.flag_values_dict():
                     break
         else:
             with open(json_path, 'w') as f:
-                json.dump(FLAGS.__flags, f, indent=4)
+                json.dump(FLAGS.flag_values_dict(), f, indent=4)
             break
 
 
@@ -417,7 +417,7 @@ def main(_):
     
     # Build model
     if FLAGS.model in ('baseline', 'mixed', 'dcnplus', 'dcn'):
-        model = DCN(embeddings, FLAGS.__flags)
+        model = DCN(embeddings, FLAGS.flag_values_dict())
     elif FLAGS.model == 'cat':
         from networks.cat import Graph
         model = Graph(embeddings)

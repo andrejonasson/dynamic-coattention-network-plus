@@ -5,6 +5,8 @@ Dynamic Coattention Network Plus - Question Answering
 
 SQuAD (Stanford Question Answering Dataset)[3][4] formulates a machine learning problem where the model receives a question and a passage and is tasked with answering the question using the passage. The answers are limited to spans of text. The training data consists of (question, paragraph, answer span) triplets. Due to the nature of the task, combining the information contained in the passage with the question posed is paramount to achieve good performance (See references for more information). Recurrent neural networks that combine the information from the question and paragraph using coattention mechanisms such as the Dynamic Coattention Network [1] and its deeper and improved version [2] have achieved the best results in the task so far.
 
+NOTE: Do not study Stanford's CS224n input processing, it's a bad example of how things should be done.
+
 ## Networks
 
 ### Baseline model
@@ -37,8 +39,6 @@ For the implementation see `networks.dcn_plus`. An effort has been made to docum
 ### Todos
 - Character embeddings (Char-CNN as in BiDAF [5])
 - Sparse mixture of experts
-- Compatibility with official evaluation script
-- Figure out where and to what degree dropout should be applied
 
 ## Additional Modules
 
@@ -74,7 +74,7 @@ While the preprocessing is running you can continue with Step 3 in another termi
 ``` sh
 $ python question_answering/preprocessing/dwr.py <GLOVE_SOURCE>
 ```
-to download and extract GLoVe embeddings, where `<GLOVE_SOURCE>` is either `wiki` for Wikipedia 100/200/300 dimensional GLoVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GLoVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GLoVE finishes in about half an hour.
+to download and extract GloVe embeddings, where `<GLOVE_SOURCE>` is either `wiki` for Wikipedia 100/200/300 dimensional GloVe word embeddings (~800mb) or `crawl_ci`/`crawl_cs` for Common Crawl 300 dimensional GloVe word embeddings (~1.8-2.2gb) where `crawl_ci` is the case insensitive version. Note that at a later step Common Crawl requires at least 4 hours of processing while Wikipedia 100 dimensional GloVe finishes in about half an hour.
 
 4. When Step 2 and 3 are complete change directory to the folder containing the code (`main.py` etc.) and run
 ``` sh
@@ -105,7 +105,7 @@ from the project folder and navigate to `localhost:6006`. The gradient norm and 
 
 ## Acknowledgements
 
-The project uses code from Stanford's CS224n to read and transform the original SQuAD dataset together with the GLoVe vectors to an appropriate format for model development. These files or functions have been annotated with "CS224n" at the beginning.
+The project uses code from Stanford's CS224n to read and transform the original SQuAD dataset together with the GloVe vectors to an appropriate format for model development. These files or functions have been annotated with "CS224n" at the beginning.
 
 ## References
 

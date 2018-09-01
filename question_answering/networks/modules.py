@@ -2,6 +2,7 @@ import tensorflow as tf
 from tensorflow.python.framework import function
 from tensorflow.contrib.seq2seq.python.ops.attention_wrapper import _maybe_mask_score
 
+
 def maybe_mask_affinity(affinity, sequence_length, affinity_mask_value=float('-inf')):
     """ Masks affinity along its third dimension with `affinity_mask_value`.
 
@@ -151,6 +152,8 @@ def cell_factory(cell_type, state_size, is_training, input_keep_prob=1.0, output
 
 def char_cnn_word_vectors(chars, embeddings, filter_widths, num_filters):
     """ Character CNN word vectors  
+
+    NOTE: Not working, with some adjustments will work. Adjustments done at work for another project, cannot share on github.
 
     Constructs a word vector from character embeddings by running a CNN over the word's characters
     then max pooling over characters. Each filter convolves the full depth of the character embedding and 

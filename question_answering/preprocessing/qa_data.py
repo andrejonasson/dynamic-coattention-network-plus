@@ -1,4 +1,4 @@
-""" CS224n, altered """
+""" CS224n, altered with big bug fix """
 
 from __future__ import absolute_import
 from __future__ import division
@@ -9,13 +9,14 @@ import os
 import re
 import tarfile
 import argparse
-
+from os.path import join as pjoin
 from six.moves import urllib
 
-from tensorflow.python.platform import gfile
+from tensorflow import gfile
 from tqdm import tqdm
 import numpy as np
-from os.path import join as pjoin
+
+from squad_preprocess import tokenize
 
 _PAD = "<pad>"
 _SOS = "<sos>"
@@ -65,6 +66,8 @@ def process_glove(args, vocab_list, save_path, size=4e5, random_init=True):
     """
     :param vocab_list: [vocab]
     :return:
+
+    NOTE: bug fixed in Stanfords CS224n squad code which had if if if instead of if elif elif
     """
     if not gfile.Exists(save_path + ".npz"):
         if args.glove_source == 'wiki':
@@ -81,7 +84,7 @@ def process_glove(args, vocab_list, save_path, size=4e5, random_init=True):
         else:
             glove = np.zeros((len(vocab_list), args.glove_dim))
         found = 0
-        with open(glove_path, 'r') as fh:
+        with open(glove_path, 'r', encoding='utf8') as fh:  # NOTE: encoding='utf8, new addition, may cause problems elsewhere
             for line in tqdm(fh, total=size):
                 array = line.lstrip().rstrip().split(" ")
                 word = array[0]
@@ -90,11 +93,15 @@ def process_glove(args, vocab_list, save_path, size=4e5, random_init=True):
                     idx = vocab_list.index(word)
                     glove[idx, :] = vector
                     found += 1
-                if word.capitalize() in vocab_list:
+                elif word.capitalize() in vocab_list:
                     idx = vocab_list.index(word.capitalize())
                     glove[idx, :] = vector
                     found += 1
-                if word.upper() in vocab_list:
+                elif word.lower() in vocab_list:
+                    idx = vocab_list.index(word.lower())
+                    glove[idx, :] = vector
+                    found += 1
+                elif word.upper() in vocab_list:
                     idx = vocab_list.index(word.upper())
                     glove[idx, :] = vector
                     found += 1
@@ -104,7 +111,7 @@ def process_glove(args, vocab_list, save_path, size=4e5, random_init=True):
         print("saved trimmed glove matrix at: {}".format(save_path))
 
 
-def create_vocabulary(vocabulary_path, data_paths, tokenizer=None):
+def create_vocabulary(vocabulary_path, data_paths, tokenizer):
     if not gfile.Exists(vocabulary_path):
         print("Creating vocabulary %s from data %s" % (vocabulary_path, str(data_paths)))
         vocab = {}
@@ -115,7 +122,7 @@ def create_vocabulary(vocabulary_path, data_paths, tokenizer=None):
                     counter += 1
                     if counter % 100000 == 0:
                         print("processing line %d" % counter)
-                    tokens = tokenizer(line) if tokenizer else basic_tokenizer(line)
+                    tokens = tokenizer(line)
                     for w in tokens:
                         if w in vocab:
                             vocab[w] += 1
@@ -128,16 +135,13 @@ def create_vocabulary(vocabulary_path, data_paths, tokenizer=None):
                 vocab_file.write(w + "\n")
 
 
-def sentence_to_token_ids(sentence, vocabulary, tokenizer=None):
-    if tokenizer:
-        words = tokenizer(sentence)
-    else:
-        words = basic_tokenizer(sentence)
+def sentence_to_token_ids(sentence, vocabulary, tokenizer):
+    words = tokenizer(sentence)
     return [vocabulary.get(w, UNK_ID) for w in words]
 
 
 def data_to_token_ids(data_path, target_path, vocabulary_path,
-                      tokenizer=None):
+                      tokenizer):
     if not gfile.Exists(target_path):
         print("Tokenizing data in %s" % data_path)
         vocab, _ = initialize_vocabulary(vocabulary_path)
@@ -164,7 +168,8 @@ if __name__ == '__main__':
                       [pjoin(args.source_dir, "train.context"),
                        pjoin(args.source_dir, "train.question"),
                        pjoin(args.source_dir, "val.context"),
-                       pjoin(args.source_dir, "val.question")])
+                       pjoin(args.source_dir, "val.question")],
+                       basic_tokenizer)
     vocab, rev_vocab = initialize_vocabulary(pjoin(args.vocab_dir, "vocab.dat"))
 
     # ======== Trim Distributed Word Representation =======
@@ -181,10 +186,10 @@ if __name__ == '__main__':
 
     x_train_dis_path = train_path + ".ids.context"
     y_train_ids_path = train_path + ".ids.question"
-    data_to_token_ids(train_path + ".context", x_train_dis_path, vocab_path)
-    data_to_token_ids(train_path + ".question", y_train_ids_path, vocab_path)
+    data_to_token_ids(train_path + ".context", x_train_dis_path, vocab_path, basic_tokenizer)
+    data_to_token_ids(train_path + ".question", y_train_ids_path, vocab_path, basic_tokenizer)
 
     x_dis_path = valid_path + ".ids.context"
     y_ids_path = valid_path + ".ids.question"
-    data_to_token_ids(valid_path + ".context", x_dis_path, vocab_path)
-    data_to_token_ids(valid_path + ".question", y_ids_path, vocab_path)
+    data_to_token_ids(valid_path + ".context", x_dis_path, vocab_path, basic_tokenizer)
+    data_to_token_ids(valid_path + ".question", y_ids_path, vocab_path, basic_tokenizer)
