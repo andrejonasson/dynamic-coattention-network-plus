@@ -47,7 +47,7 @@ The project contains an implementation of the dynamic programming approach for f
 
 ### Dependencies
 
-The project requires Python 3.6 with TensorFlow 1.4. Support for prior versions will not be added.
+The project requires Python 3.6 with TensorFlow 1.10. Support for prior versions will not be added.
 
 ### Getting started
 
